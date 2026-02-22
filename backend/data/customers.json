@@ -1,0 +1,20 @@
+[
+  {
+    "_id": "LB-123456",
+    "full_name": "Julia Meyer",
+    "postal_code": "20097",
+    "last_meter_reading_kwh": 1200
+  },
+  {
+    "_id": "LB-654321",
+    "full_name": "Hans Müller",
+    "postal_code": "10115",
+    "last_meter_reading_kwh": 890
+  },
+  {
+    "_id": "LB-999000",
+    "full_name": "Anna Schmidt",
+    "postal_code": "80331",
+    "last_meter_reading_kwh": 2100
+  }
+]

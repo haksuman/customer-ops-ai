@@ -3,6 +3,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from app.core.llm import get_llm
 from app.domain.auth_policy import get_missing_auth_fields, needs_auth, verify_auth
 from app.models.schemas import AUTH_REQUIRED_INTENTS, Intent
 from app.services.extractor import detect_intents, extract_entities
@@ -53,7 +56,7 @@ def handle_no_auth_intents_node(state: dict[str, Any]) -> dict[str, Any]:
     product_repo = MockProductRepository()
     for intent in no_auth_intents:
         if intent == Intent.PRODUCT_INFO_REQUEST:
-            state["response_parts"].append(product_repo.get_dynamic_tariff_info())
+            state["response_parts"].append(product_repo.get_tariff_info("dynamic-tariff"))
             state.setdefault("handled_intents", []).append(intent)
         elif intent == Intent.GENERAL_FEEDBACK:
             state["response_parts"].append("Thank you for your feedback. We appreciate you reaching out.")
@@ -162,21 +165,36 @@ def aggregate_response_node(state: dict[str, Any]) -> dict[str, Any]:
     _append_step(state, step, "running", "Aggregating final customer response.")
 
     if state["response_parts"]:
-        state["final_response"] = (
-            "Hello,\n\n"
-            + "\n\n".join(state["response_parts"])
-            + "\n\nKind regards,\nAI Service Assistant"
-        )
+        content_block = "\n\n".join(state["response_parts"])
     elif state["errors"]:
-        state["final_response"] = (
-            "Hello,\n\nWe could not process your request due to missing or invalid data. "
-            "Please provide more details so we can help.\n\nKind regards,\nAI Service Assistant"
+        content_block = (
+            "We could not fully process the request due to missing or invalid data. "
+            "Ask the customer to provide more details."
         )
     else:
+        content_block = "Ask the customer to clarify their request."
+
+    system = (
+        "You are a professional customer service assistant for a German energy utility. "
+        "Write a polite, concise, and empathetic email reply to the customer. "
+        "Use the provided content points as the body. "
+        "Start with 'Hello,' and end with 'Kind regards,\nAI Service Assistant'. "
+        "Do not add new information beyond what is provided."
+    )
+    user = f"Content points to include in the reply:\n\n{content_block}"
+
+    try:
+        llm = get_llm()
+        response = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
+        state["final_response"] = response.content
+    except Exception as exc:
+        logger.exception("aggregate_llm_failed", extra={"node": step})
         state["final_response"] = (
-            "Hello,\n\nThank you for your email. Could you please provide a bit more detail "
-            "about your request?\n\nKind regards,\nAI Service Assistant"
+            "Hello,\n\n"
+            + content_block
+            + "\n\nKind regards,\nAI Service Assistant"
         )
+        state["errors"].append(f"LLM aggregation failed, used fallback: {exc}")
 
     _append_step(state, step, "completed", "Final response composed.")
     return state

@@ -1,0 +1,17 @@
+[
+  {
+    "_id": "dynamic-tariff",
+    "name": "Dynamic Tariff",
+    "description": "Our dynamic tariff reflects wholesale market prices, which can vary hourly. It benefits customers who can shift usage to lower-price periods and generally requires a compatible smart meter."
+  },
+  {
+    "_id": "fixed-tariff",
+    "name": "Fixed Tariff",
+    "description": "Our fixed tariff locks in a stable price per kWh for the contract duration. Ideal for customers who prefer predictable billing regardless of market fluctuations."
+  },
+  {
+    "_id": "green-energy",
+    "name": "Green Energy",
+    "description": "Our green energy option guarantees that 100% of your consumption is covered by renewable sources. Available as an add-on to both fixed and dynamic tariffs."
+  }
+]
