@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import logging
+import uuid
+from datetime import datetime
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.llm import get_llm
 from app.domain.auth_policy import AUTH_FIELD_LABELS, get_missing_auth_fields, get_missing_auth_labels, needs_auth, verify_auth
-from app.models.schemas import AUTH_REQUIRED_INTENTS, Intent
+from app.models.schemas import AUTH_REQUIRED_INTENTS, Intent, PendingApproval
 from app.services.extractor import detect_intents, extract_entities
-from app.services.mock_repos import MockCustomerRepository, MockProductRepository
+from app.services.mock_repos import MockCustomerRepository, MockProductRepository, MockApprovalRepository
 
 logger = logging.getLogger(__name__)
 
@@ -178,11 +180,91 @@ def handle_protected_intents_node(state: dict[str, Any]) -> dict[str, Any]:
             handled.append(intent)
 
         elif intent == Intent.PERSONAL_DATA_CHANGE:
-            state["response_parts"].append(
-                "Your personal data change request has been received and is queued for secure processing. "
-                "Changes will be applied within 2 business days and you will receive a confirmation."
-            )
-            handled.append(intent)
+            # HITL safety check
+            llm = get_llm()
+            safety_prompt = """Analyze the personal data change request. 
+            Is it a simple name change or address update? 
+            Or is it dangerous (e.g. requesting to cancel the contract, delete data, or changing to something obviously fake/malicious)?
+            
+            Return ONLY a JSON object:
+            {
+                "status": "approved" | "pending" | "dangerous",
+                "summary": "Short 1-sentence summary of the request",
+                "requested_change": { "field": "new_value" }
+            }"""
+            
+            try:
+                safety_res = llm.invoke([
+                    SystemMessage(content=safety_prompt),
+                    HumanMessage(content=state["latest_message"])
+                ])
+                
+                import json
+                import re
+                
+                # More robust JSON extraction
+                content = safety_res.content.strip()
+                json_match = re.search(r"\{[\s\S]*\}", content)
+                if json_match:
+                    content = json_match.group(0)
+                
+                safety_data = json.loads(content)
+                
+                if safety_data["status"] == "dangerous":
+                    state["response_parts"].append(
+                        "We cannot process your personal data change request as it appears to contain invalid or restricted instructions. "
+                        "Please contact our support hotline for further assistance."
+                    )
+                    handled.append(intent)
+                elif safety_data["status"] == "approved" and "full_name" in safety_data.get("requested_change", {}):
+                    # Auto-approve simple name changes for demo purposes if we wanted to, 
+                    # but the requirement says they should go through operator approval.
+                    # So we'll force everything to "pending" for the HITL demo.
+                    approval_repo = MockApprovalRepository()
+                    approval_id = str(uuid.uuid4())
+                    pending = PendingApproval(
+                        id=approval_id,
+                        thread_id=state.get("thread_id", "unknown"),
+                        contract_number=contract_number,
+                        intent=intent,
+                        requested_change=safety_data.get("requested_change", {}),
+                        ai_summary=safety_data.get("summary", "Personal data change request"),
+                        created_at=datetime.now().isoformat()
+                    )
+                    approval_repo.add_pending(pending.model_dump())
+                    
+                    state["response_parts"].append(
+                        "Your request for a personal data change has been forwarded to our customer service team for final review. "
+                        "A human operator will check the details and apply the changes shortly. You will receive a confirmation once complete."
+                    )
+                    handled.append(intent)
+                else:
+                    # Fallback for other types of changes
+                    approval_repo = MockApprovalRepository()
+                    approval_id = str(uuid.uuid4())
+                    pending = PendingApproval(
+                        id=approval_id,
+                        thread_id=state.get("thread_id", "unknown"),
+                        contract_number=contract_number,
+                        intent=intent,
+                        requested_change=safety_data.get("requested_change", {}),
+                        ai_summary=safety_data.get("summary", "Data change request"),
+                        created_at=datetime.now().isoformat()
+                    )
+                    approval_repo.add_pending(pending.model_dump())
+                    
+                    state["response_parts"].append(
+                        "Your data change request has been received and forwarded to a human operator for verification. "
+                        "We will notify you as soon as the review is complete."
+                    )
+                    handled.append(intent)
+            except Exception as e:
+                logger.error(f"Safety check failed: {e}")
+                state["response_parts"].append(
+                    "Your personal data change request has been received and is queued for secure processing. "
+                    "A support representative will review it shortly."
+                )
+                handled.append(intent)
 
     # Filter out successfully handled intents from pending
     state["pending_protected_intents"] = [

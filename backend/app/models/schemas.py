@@ -64,3 +64,19 @@ class ProcessMessageResponse(BaseModel):
 
 class ThreadStateResponse(BaseModel):
     state: ThreadState
+
+
+class PendingApproval(BaseModel):
+    id: str
+    thread_id: str
+    contract_number: str
+    intent: Intent
+    requested_change: dict[str, Any]
+    ai_summary: str
+    is_dangerous: bool = False
+    created_at: str
+    customer_info: dict[str, Any] | None = None
+
+
+class ApprovalListResponse(BaseModel):
+    approvals: list[PendingApproval]

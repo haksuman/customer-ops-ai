@@ -7,12 +7,18 @@ from fastapi import APIRouter, HTTPException
 from app.core.logging import thread_id_ctx
 from app.graph.workflow import build_workflow
 from app.models.schemas import (
+    ApprovalListResponse,
     Message,
+    PendingApproval,
     ProcessMessageRequest,
     ProcessMessageResponse,
     ThreadState,
     ThreadStateResponse,
     WorkflowStep,
+)
+from app.services.mock_repos import (
+    MockApprovalRepository,
+    MockCustomerRepository,
 )
 
 router = APIRouter(prefix="/api", tags=["copilot"])
@@ -26,6 +32,7 @@ def _initial_state(thread_id: str) -> ThreadState:
 
 def _to_graph_input(state: ThreadState, latest_message: str) -> dict:
     return {
+        "thread_id": state.thread_id,
         "latest_message": latest_message,
         "detected_intents": [],
         "pending_protected_intents": state.pending_protected_intents.copy(),
@@ -71,6 +78,68 @@ async def process_message(payload: ProcessMessageRequest) -> ProcessMessageRespo
         entities=thread.entities,
         workflow_steps=thread.workflow_steps,
     )
+
+
+@router.get("/approvals", response_model=ApprovalListResponse)
+async def list_approvals() -> ApprovalListResponse:
+    repo = MockApprovalRepository()
+    cust_repo = MockCustomerRepository()
+    records = repo.list_pending()
+    
+    approvals = []
+    for r in records:
+        approval = PendingApproval(**r)
+        # Enrich with current customer info
+        approval.customer_info = cust_repo.get_customer_by_contract(approval.contract_number)
+        approvals.append(approval)
+        
+    return ApprovalListResponse(approvals=approvals)
+
+
+@router.post("/approvals/{approval_id}/approve")
+async def approve_change(approval_id: str):
+    approval_repo = MockApprovalRepository()
+    approval = approval_repo.get_by_id(approval_id)
+    if not approval:
+        raise HTTPException(status_code=404, detail="Approval request not found")
+    
+    # 1. Update customer data
+    cust_repo = MockCustomerRepository()
+    changes = approval.get("requested_change", {})
+    if "full_name" in changes:
+        cust_repo.update_customer_name(approval["contract_number"], changes["full_name"])
+    
+    # 2. Notify thread
+    thread = THREAD_STORE.get(approval["thread_id"])
+    if thread:
+        thread.messages.append(Message(
+            role="assistant", 
+            content=f"APPROVED: Your request for a {approval['intent']} has been reviewed and approved by an operator. The changes have been applied to your account."
+        ))
+    
+    # 3. Remove from pending
+    approval_repo.remove_pending(approval_id)
+    return {"status": "success"}
+
+
+@router.post("/approvals/{approval_id}/reject")
+async def reject_change(approval_id: str):
+    approval_repo = MockApprovalRepository()
+    approval = approval_repo.get_by_id(approval_id)
+    if not approval:
+        raise HTTPException(status_code=404, detail="Approval request not found")
+    
+    # 1. Notify thread
+    thread = THREAD_STORE.get(approval["thread_id"])
+    if thread:
+        thread.messages.append(Message(
+            role="assistant", 
+            content=f"REJECTED: Your request for a {approval['intent']} was reviewed by an operator and could not be approved at this time. Please contact support for more details."
+        ))
+    
+    # 2. Remove from pending
+    approval_repo.remove_pending(approval_id)
+    return {"status": "success"}
 
 
 @router.get("/threads/{thread_id}", response_model=ThreadStateResponse)

@@ -6,6 +6,7 @@ from app.models.schemas import Intent
 
 
 class GraphState(TypedDict):
+    thread_id: str
     latest_message: str
     detected_intents: list[Intent]
     pending_protected_intents: list[Intent]

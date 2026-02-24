@@ -1,0 +1,15 @@
+[
+  {
+    "id": "bc5422cf-ca5e-4503-8775-8a89f3734bb2",
+    "thread_id": "demo-thread-1",
+    "contract_number": "LB-9900112",
+    "intent": "PersonalDataChange",
+    "requested_change": {
+      "name": "Thomas M\u00fcller"
+    },
+    "ai_summary": "The customer is requesting a name change from Thomas Wagner to Thomas M\u00fcller due to marriage.",
+    "is_dangerous": false,
+    "created_at": "2026-02-24T21:40:02.913192",
+    "customer_info": null
+  }
+]

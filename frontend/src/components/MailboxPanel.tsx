@@ -1,17 +1,31 @@
-import type { Message } from '../types'
+import type { Message, Scenario } from '../types'
 
 type MailboxPanelProps = {
   threadId: string
   input: string
   messages: Message[]
   isProcessing: boolean
+  scenarios: Scenario[]
+  scenarioDescription: string
   onInputChange: (value: string) => void
   onThreadIdChange: (value: string) => void
   onSend: () => void
+  onScenarioSelect: (scenario: Scenario) => void
 }
 
 export function MailboxPanel(props: MailboxPanelProps) {
-  const { threadId, input, messages, isProcessing, onInputChange, onThreadIdChange, onSend } = props
+  const {
+    threadId,
+    input,
+    messages,
+    isProcessing,
+    scenarios,
+    scenarioDescription,
+    onInputChange,
+    onThreadIdChange,
+    onSend,
+    onScenarioSelect,
+  } = props
 
   return (
     <section className="panel">
@@ -32,6 +46,18 @@ export function MailboxPanel(props: MailboxPanelProps) {
           </article>
         ))}
       </div>
+
+      <div className="scenarios">
+        <div className="scenario-buttons">
+          {scenarios.map((s) => (
+            <button key={s.id} className="scenario-btn" onClick={() => onScenarioSelect(s)}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <p className="scenario-helper">{scenarioDescription}</p>
+      </div>
+
       <label className="label">
         New Email
         <textarea

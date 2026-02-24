@@ -11,6 +11,11 @@ def _load(filename: str) -> list[dict]:
         return json.load(f)
 
 
+def _save(filename: str, data: list[dict]) -> None:
+    with open(_DATA_DIR / filename, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
 class MockCustomerRepository:
     """
     Loads customer records from data/customers.json.
@@ -19,7 +24,8 @@ class MockCustomerRepository:
     """
 
     def __init__(self) -> None:
-        records = _load("customers.json")
+        self._filename = "customers.json"
+        records = _load(self._filename)
         self._customers: dict[str, dict] = {r["contract_number"]: r for r in records}
         self._by_id: dict[str, dict] = {r["_id"]: r for r in records}
 
@@ -79,6 +85,51 @@ class MockCustomerRepository:
         if not customer:
             return None
         return customer["contract_number"]
+
+    def get_customer_by_contract(self, contract_number: str) -> dict | None:
+        """Return full customer record by contract number."""
+        from app.services.extractor import normalize_contract_number
+        c_norm = normalize_contract_number(contract_number)
+        return self._customers.get(c_norm)
+
+    def update_customer_name(self, contract_number: str, new_name: str) -> bool:
+        customer = self._customers.get(contract_number)
+        if not customer:
+            return False
+        customer["full_name"] = new_name
+        _save(self._filename, list(self._customers.values()))
+        return True
+
+
+class MockApprovalRepository:
+    """
+    Loads pending approvals from data/pending_approvals.json.
+    """
+
+    def __init__(self) -> None:
+        self._filename = "pending_approvals.json"
+        self._records = _load(self._filename)
+
+    def list_pending(self) -> list[dict]:
+        return self._records
+
+    def add_pending(self, approval: dict) -> None:
+        self._records.append(approval)
+        _save(self._filename, self._records)
+
+    def remove_pending(self, approval_id: str) -> bool:
+        initial_len = len(self._records)
+        self._records = [r for r in self._records if r["id"] != approval_id]
+        if len(self._records) < initial_len:
+            _save(self._filename, self._records)
+            return True
+        return False
+
+    def get_by_id(self, approval_id: str) -> dict | None:
+        for r in self._records:
+            if r["id"] == approval_id:
+                return r
+        return None
 
 
 class MockProductRepository:
