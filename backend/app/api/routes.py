@@ -31,12 +31,12 @@ def _to_graph_input(state: ThreadState, latest_message: str) -> dict:
         "pending_protected_intents": state.pending_protected_intents.copy(),
         "entities": deepcopy(state.entities),
         "auth_verified": state.auth_verified,
-        "auth_missing_fields": [],
+        "auth_missing_fields": [] if state.auth_verified else state.auth_missing_fields.copy(),
         "response_parts": [],
         "workflow_steps": [],
         "errors": [],
         "final_response": "",
-        "handled_intents": [],
+        "handled_intents": state.handled_intents.copy(),
     }
 
 
@@ -50,14 +50,15 @@ async def process_message(payload: ProcessMessageRequest) -> ProcessMessageRespo
     graph_state = workflow.invoke(_to_graph_input(thread, payload.message))
 
     thread.latest_message = payload.message
-    thread.detected_intents = graph_state["detected_intents"]
-    thread.pending_protected_intents = graph_state["pending_protected_intents"]
-    thread.entities = graph_state["entities"]
-    thread.auth_verified = graph_state["auth_verified"]
-    thread.auth_missing_fields = graph_state["auth_missing_fields"]
-    thread.workflow_steps = [WorkflowStep(**step) for step in graph_state["workflow_steps"]]
-    thread.errors = graph_state["errors"]
-    thread.final_response = graph_state["final_response"]
+    thread.detected_intents = graph_state.get("detected_intents", [])
+    thread.pending_protected_intents = graph_state.get("pending_protected_intents", [])
+    thread.handled_intents = graph_state.get("handled_intents", [])
+    thread.entities = graph_state.get("entities", {})
+    thread.auth_verified = graph_state.get("auth_verified", False)
+    thread.auth_missing_fields = graph_state.get("auth_missing_fields", [])
+    thread.workflow_steps = [WorkflowStep(**step) for step in graph_state.get("workflow_steps", [])]
+    thread.errors = graph_state.get("errors", [])
+    thread.final_response = graph_state.get("final_response", "")
     thread.messages.append(Message(role="assistant", content=thread.final_response))
 
     THREAD_STORE[payload.thread_id] = thread

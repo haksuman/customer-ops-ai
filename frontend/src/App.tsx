@@ -7,8 +7,8 @@ import type { Message, ProcessResponse } from './types'
 function App() {
   const [threadId, setThreadId] = useState('demo-thread-1')
   const [input, setInput] = useState(
-    "Hello LichtBlick Team,\nI'd like to submit my latest electricity meter reading as 1438 kWh and ask about your dynamic tariff.\nBest, Julia Meyer"
-  )
+    "Hello LichtBlick Team,\n\nI'd like to submit my latest electricity meter reading and ask about your dynamic tariff. My contract number is LB-9876543 and the reading is 1438 kWh.\n\nMy postal code is 20097.\n\nBest regards,\nJulia Meyer",
+  );
   const [messages, setMessages] = useState<Message[]>([])
   const [lastResult, setLastResult] = useState<ProcessResponse | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)

@@ -16,3 +16,4 @@ class GraphState(TypedDict):
     workflow_steps: list[dict[str, str]]
     final_response: str
     errors: list[str]
+    handled_intents: list[Intent]

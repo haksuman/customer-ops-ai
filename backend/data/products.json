@@ -2,16 +2,21 @@
   {
     "_id": "dynamic-tariff",
     "name": "Dynamic Tariff",
-    "description": "Our dynamic tariff reflects wholesale market prices, which can vary hourly. It benefits customers who can shift usage to lower-price periods and generally requires a compatible smart meter."
+    "description": "Our dynamic tariff reflects wholesale market prices, which can vary hourly. It benefits customers who can shift usage to lower-price periods (e.g., running appliances at night or during weekends). A compatible smart meter is generally required. You can switch to this tariff at any time via our customer portal."
   },
   {
     "_id": "fixed-tariff",
     "name": "Fixed Tariff",
-    "description": "Our fixed tariff locks in a stable price per kWh for the contract duration. Ideal for customers who prefer predictable billing regardless of market fluctuations."
+    "description": "Our fixed tariff locks in a stable price per kWh for the entire contract duration. Ideal for customers who prefer predictable billing regardless of market fluctuations. No smart meter is required. The contract term is typically 12 months with automatic renewal."
   },
   {
     "_id": "green-energy",
     "name": "Green Energy",
-    "description": "Our green energy option guarantees that 100% of your consumption is covered by renewable sources. Available as an add-on to both fixed and dynamic tariffs."
+    "description": "Our green energy option guarantees that 100% of your consumption is covered by renewable sources (wind, solar, and hydro). Available as an add-on to both fixed and dynamic tariffs at a small monthly premium. Certified by TÜV and recognized by the European renewable energy label."
+  },
+  {
+    "_id": "comfort-plus",
+    "name": "Comfort Plus",
+    "description": "Our Comfort Plus tariff combines a fixed base price with a modest variable component tied to market peaks. It provides budget predictability while still allowing savings during low-price periods. Includes priority customer support and a free annual energy audit."
   }
 ]

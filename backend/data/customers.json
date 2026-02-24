@@ -1,20 +1,44 @@
 [
   {
-    "_id": "LB-123456",
+    "_id": "65da1b2c3d4e5f6a7b8c9d01",
+    "contract_number": "LB-9876543",
     "full_name": "Julia Meyer",
     "postal_code": "20097",
     "last_meter_reading_kwh": 1200
   },
   {
-    "_id": "LB-654321",
+    "_id": "65da1b2c3d4e5f6a7b8c9d02",
+    "contract_number": "LB-1122334",
     "full_name": "Hans Müller",
     "postal_code": "10115",
     "last_meter_reading_kwh": 890
   },
   {
-    "_id": "LB-999000",
+    "_id": "65da1b2c3d4e5f6a7b8c9d03",
+    "contract_number": "LB-5566778",
     "full_name": "Anna Schmidt",
     "postal_code": "80331",
     "last_meter_reading_kwh": 2100
+  },
+  {
+    "_id": "65da1b2c3d4e5f6a7b8c9d04",
+    "contract_number": "LB-9900112",
+    "full_name": "Thomas Wagner",
+    "postal_code": "60313",
+    "last_meter_reading_kwh": 3450
+  },
+  {
+    "_id": "65da1b2c3d4e5f6a7b8c9d05",
+    "contract_number": "LB-4433221",
+    "full_name": "Maria Bauer",
+    "postal_code": "70173",
+    "last_meter_reading_kwh": 760
+  },
+  {
+    "_id": "65da1b2c3d4e5f6a7b8c9d06",
+    "contract_number": "LB-7788990",
+    "full_name": "Klaus Fischer",
+    "postal_code": "04109",
+    "last_meter_reading_kwh": 1580
   }
 ]

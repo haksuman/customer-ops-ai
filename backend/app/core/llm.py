@@ -6,7 +6,7 @@ from functools import lru_cache
 from langchain_ollama import ChatOllama
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3-vl:235b-cloud")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemini-3-flash-preview")
 
 
 @lru_cache(maxsize=1)

@@ -6,7 +6,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.llm import get_llm
-from app.domain.auth_policy import get_missing_auth_fields, needs_auth, verify_auth
+from app.domain.auth_policy import AUTH_FIELD_LABELS, get_missing_auth_fields, get_missing_auth_labels, needs_auth, verify_auth
 from app.models.schemas import AUTH_REQUIRED_INTENTS, Intent
 from app.services.extractor import detect_intents, extract_entities
 from app.services.mock_repos import MockCustomerRepository, MockProductRepository
@@ -48,9 +48,15 @@ def extract_and_detect_node(state: dict[str, Any]) -> dict[str, Any]:
 def handle_no_auth_intents_node(state: dict[str, Any]) -> dict[str, Any]:
     step = "handle_no_auth_intents"
     _append_step(state, step, "running", "Handling intents that do not require authentication.")
-    no_auth_intents = [intent for intent in state["detected_intents"] if intent not in AUTH_REQUIRED_INTENTS]
+    
+    handled = state.get("handled_intents", [])
+    no_auth_intents = [
+        intent for intent in state["detected_intents"] 
+        if intent not in AUTH_REQUIRED_INTENTS and intent not in handled
+    ]
+    
     if not no_auth_intents:
-        _append_step(state, step, "skipped", "No public intents detected.")
+        _append_step(state, step, "skipped", "No new public intents detected.")
         return state
 
     product_repo = MockProductRepository()
@@ -70,7 +76,12 @@ def auth_policy_node(state: dict[str, Any]) -> dict[str, Any]:
     step = "auth_policy"
     _append_step(state, step, "running", "Evaluating whether authentication is required.")
 
-    protected_intents = [intent for intent in state["detected_intents"] if intent in AUTH_REQUIRED_INTENTS]
+    handled = state.get("handled_intents", [])
+    protected_intents = [
+        intent for intent in state["detected_intents"] 
+        if intent in AUTH_REQUIRED_INTENTS and intent not in handled
+    ]
+    
     pending = state.get("pending_protected_intents", [])
     if protected_intents:
         state["pending_protected_intents"] = list({*pending, *protected_intents})
@@ -84,7 +95,8 @@ def auth_policy_node(state: dict[str, Any]) -> dict[str, Any]:
     state["auth_missing_fields"] = missing
     if missing:
         state["auth_verified"] = False
-        _append_step(state, step, "completed", f"Missing fields: {', '.join(missing)}.")
+        labels = get_missing_auth_labels(state["entities"])
+        _append_step(state, step, "completed", f"Missing fields: {', '.join(labels)}.")
         return state
 
     repo = MockCustomerRepository()
@@ -102,10 +114,12 @@ def compose_auth_request_node(state: dict[str, Any]) -> dict[str, Any]:
     _append_step(state, step, "running", "Composing follow-up for missing authentication data.")
     missing = state.get("auth_missing_fields", [])
     if missing:
+        labels = [AUTH_FIELD_LABELS.get(f, f) for f in missing]
+        bullet_list = "\n".join(f"- {label}" for label in labels)
         state["response_parts"].append(
-            "To process your protected request, please provide the missing verification data: "
-            + ", ".join(missing)
-            + "."
+            "To process your request, we need the following verification details:\n"
+            + bullet_list
+            + "\n\nSimply reply to this email and we will get back to you promptly."
         )
     _append_step(state, step, "completed", "Auth follow-up composed.")
     return state
@@ -124,6 +138,8 @@ def handle_protected_intents_node(state: dict[str, Any]) -> dict[str, Any]:
         return state
 
     customer_repo = MockCustomerRepository()
+    contract_number = str(state["entities"].get("contract_number", ""))
+    handled = state.setdefault("handled_intents", [])
     for intent in protected_intents:
         if intent == Intent.METER_READING_SUBMISSION:
             reading = state["entities"].get("meter_reading_kwh")
@@ -131,31 +147,48 @@ def handle_protected_intents_node(state: dict[str, Any]) -> dict[str, Any]:
                 state["response_parts"].append("Please share your latest meter reading in kWh.")
                 continue
 
-            previous = customer_repo.previous_meter_reading(str(state["entities"]["contract_number"]))
+            submitted_meter = state["entities"].get("meter_number")
+            if submitted_meter:
+                expected_meter = customer_repo.get_meter_number(contract_number)
+                if expected_meter and submitted_meter != expected_meter:
+                    state["response_parts"].append(
+                        f"The meter number you provided ({submitted_meter}) does not match "
+                        "the meter registered on your account. Please verify and resubmit."
+                    )
+                    continue
+
+            previous = customer_repo.previous_meter_reading(contract_number)
             if previous is not None and int(reading) > previous + 1000:
                 state["response_parts"].append(
-                    f"Your submitted meter reading ({reading} kWh) looks unusually high. "
-                    "Please double-check and confirm."
+                    f"Your submitted meter reading ({reading} kWh) looks unusually high "
+                    f"compared to your previous reading ({previous} kWh). "
+                    "Please double-check and confirm, or let us know if there is a reason for this deviation."
                 )
             else:
                 state["response_parts"].append(
                     f"Thank you. Your meter reading of {reading} kWh has been recorded successfully."
                 )
-            state.setdefault("handled_intents", []).append(intent)
+            handled.append(intent)
 
-        if intent == Intent.CONTRACT_ISSUES:
+        elif intent == Intent.CONTRACT_ISSUES:
             state["response_parts"].append(
-                "For contract duration, termination, or switching, we can proceed after review and send next steps."
+                "We have received your contract query. Our team will review your contract details "
+                "and send you the next steps regarding duration, termination, or switching within one business day."
             )
-            state.setdefault("handled_intents", []).append(intent)
+            handled.append(intent)
 
-        if intent == Intent.PERSONAL_DATA_CHANGE:
+        elif intent == Intent.PERSONAL_DATA_CHANGE:
             state["response_parts"].append(
-                "Your personal data change request has been received and is queued for secure processing."
+                "Your personal data change request has been received and is queued for secure processing. "
+                "Changes will be applied within 2 business days and you will receive a confirmation."
             )
-            state.setdefault("handled_intents", []).append(intent)
+            handled.append(intent)
 
-    state["pending_protected_intents"] = []
+    # Filter out successfully handled intents from pending
+    state["pending_protected_intents"] = [
+        intent for intent in state.get("pending_protected_intents", [])
+        if intent not in handled
+    ]
     _append_step(state, step, "completed", "Protected intent handling completed.")
     return state
 
