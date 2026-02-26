@@ -23,7 +23,7 @@ class JsonFormatter(logging.Formatter):
             "request_id": request_id_ctx.get(),
             "thread_id": thread_id_ctx.get(),
         }
-        for key in ("node", "detected_intents", "entity_keys", "latency_ms", "path", "method", "status_code"):
+        for key in ("node", "detected_intents", "entity_keys", "latency_ms", "path", "method", "status_code", "model", "base_url"):
             if hasattr(record, key):
                 payload[key] = getattr(record, key)
         return json.dumps(payload, ensure_ascii=True)

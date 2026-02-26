@@ -25,6 +25,7 @@ def run_graph(message: str, existing: dict | None = None, mock_extract=None, moc
         "errors": [],
         "final_response": "",
         "handled_intents": [],
+        "verbatim_response": None,
     }
     state["latest_message"] = message
 
@@ -72,12 +73,12 @@ def test_authenticated_follow_up_processes_protected_intent():
 
     second_extraction = _mock_extraction(
         intents=[],
-        contract_number="LB-123456",
+        contract_number="LB-9876543",
         full_name="Julia Meyer",
         postal_code="20097",
     )
     second = run_graph(
-        "Contract number LB-123456, Julia Meyer, postal code 20097.",
+        "Contract number LB-9876543, Julia Meyer, postal code 20097.",
         existing=first,
         mock_extract=second_extraction,
         mock_llm_reply="Hello,\n\nYour meter reading has been recorded successfully.\n\nKind regards,\nAI Service Assistant",
@@ -90,15 +91,75 @@ def test_authenticated_follow_up_processes_protected_intent():
 def test_meter_anomaly_branch():
     extraction = _mock_extraction(
         intents=[Intent.METER_READING_SUBMISSION],
-        contract_number="LB-123456",
+        contract_number="LB-9876543",
         full_name="Julia Meyer",
         postal_code="20097",
         meter_reading_kwh=3000,
     )
     result = run_graph(
-        "Please process meter reading 3000 kWh. Contract LB-123456, Julia Meyer, 20097.",
+        "Please process meter reading 3000 kWh. Contract LB-9876543, Julia Meyer, 20097.",
         mock_extract=extraction,
-        mock_llm_reply="Hello,\n\nYour submitted reading looks unusually high.\n\nKind regards,\nAI Service Assistant",
     )
     assert result["auth_verified"] is True
-    assert "unusually high" in result["final_response"].lower()
+    # Verify verbatim response is used
+    assert "Dear Julia Meyer," in result["final_response"]
+    assert "consumption of 3000 kWh" in result["final_response"]
+    assert "unusually high" in result["final_response"]
+    assert "Kind Regards" in result["final_response"]
+
+
+def test_meter_reading_persistence():
+    extraction = _mock_extraction(
+        intents=[Intent.METER_READING_SUBMISSION],
+        contract_number="LB-9876543",
+        full_name="Julia Meyer",
+        postal_code="20097",
+        meter_reading_kwh=1300,
+    )
+    
+    with patch("app.services.mock_repos._save") as mock_save:
+        result = run_graph(
+            "My reading is 1300. Contract LB-9876543, Julia Meyer, 20097.",
+            mock_extract=extraction,
+            mock_llm_reply="Your meter reading of 1300 kWh has been recorded successfully."
+        )
+        
+        assert result["auth_verified"] is True
+        assert "recorded successfully" in result["final_response"]
+        
+        # Verify persistence was called
+        # EventRepo also calls _save for events. Mock repos also calls _save.
+        # We check if any call was for customers.json
+        customers_save_calls = [call for call in mock_save.call_args_list if call[0][0] == "customers.json"]
+        assert len(customers_save_calls) > 0
+        
+        # Check that the saved data contains the new reading
+        saved_data = customers_save_calls[0][0][1]
+        customer = next(c for c in saved_data if c["contract_number"] == "LB-9876543")
+        assert customer["last_meter_reading_kwh"] == 1300
+
+
+def test_meter_anomaly_no_persistence():
+    # Previous reading for LB-9876543 is 1200 in mock data
+    extraction = _mock_extraction(
+        intents=[Intent.METER_READING_SUBMISSION],
+        contract_number="LB-9876543",
+        full_name="Julia Meyer",
+        postal_code="20097",
+        meter_reading_kwh=3000, # > 1200 + 1000
+    )
+    
+    with patch("app.services.mock_repos._save") as mock_save:
+        result = run_graph(
+            "My reading is 3000. Contract LB-9876543, Julia Meyer, 20097.",
+            mock_extract=extraction,
+        )
+        
+        assert result["auth_verified"] is True
+        assert "unusually high" in result["final_response"]
+        
+        # Verify persistence was NOT called for meter reading (it might be called for other things, but here only meter update is expected)
+        # Actually MockEventRepository also calls _save.
+        # Let's check which file was saved.
+        save_calls = [call[0][0] for call in mock_save.call_args_list]
+        assert "customers.json" not in save_calls

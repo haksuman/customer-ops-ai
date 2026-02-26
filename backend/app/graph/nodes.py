@@ -159,12 +159,25 @@ def handle_protected_intents_node(state: dict[str, Any]) -> dict[str, Any]:
 
             previous = customer_repo.previous_meter_reading(contract_number)
             if previous is not None and int(reading) > previous + 1000:
-                state["response_parts"].append(
-                    f"Your submitted meter reading ({reading} kWh) looks unusually high "
-                    f"compared to your previous reading ({previous} kWh). "
-                    "Please double-check and confirm, or let us know if there is a reason for this deviation."
+                customer = customer_repo.get_customer_by_contract(contract_number)
+                name = customer["full_name"] if customer else "Customer"
+                
+                # Requirements template from project_requirements.md (98-111)
+                anomaly_template = (
+                    f"Dear {name},\n\n"
+                    "This is your AI-powered service assistant. While reviewing your meter reading, "
+                    f"I noticed that your consumption of {reading} kWh for the recent period appears unusually high.\n\n"
+                    "I kindly ask you to double-check the data or let us know the reason for this possible deviation. "
+                    "Common reasons may include:\n"
+                    "- Construction work (e.g., contractors, drying processes)\n"
+                    "- New family members or additional occupants\n"
+                    "- New tech equipment, sauna, electric vehicle, etc.\n\n"
+                    "Simply reply to this email, and we will get back to you promptly to assist you.\n\n"
+                    "Kind Regards"
                 )
+                state["verbatim_response"] = anomaly_template
             else:
+                customer_repo.update_meter_reading(contract_number, int(reading))
                 state["response_parts"].append(
                     f"Thank you. Your meter reading of {reading} kWh has been recorded successfully."
                 )
@@ -276,6 +289,11 @@ def handle_protected_intents_node(state: dict[str, Any]) -> dict[str, Any]:
 def aggregate_response_node(state: dict[str, Any]) -> dict[str, Any]:
     step = "aggregate_response"
     _append_step(state, step, "running", "Aggregating final customer response.")
+
+    if state.get("verbatim_response"):
+        state["final_response"] = state["verbatim_response"]
+        _append_step(state, step, "completed", "Used verbatim response template.")
+        return state
 
     if state["response_parts"]:
         content_block = "\n\n".join(state["response_parts"])

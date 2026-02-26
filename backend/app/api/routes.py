@@ -57,6 +57,7 @@ def _to_graph_input(state: ThreadState, latest_message: str) -> dict:
         "requires_manual_review": False,
         "manual_review_reason_code": "",
         "manual_review_log": "",
+        "verbatim_response": None,
     }
 
 
