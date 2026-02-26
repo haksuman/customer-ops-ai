@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.core.logging import thread_id_ctx
 from app.graph.workflow import build_workflow
 from app.models.schemas import (
     ApprovalListResponse,
+    DashboardResponse,
+    DashboardKpis,
+    DashboardTimeseriesPoint,
+    DashboardIntentBreakdown,
+    DashboardReasonBreakdown,
     Message,
+    NotHandledEmail,
+    NotHandledEmailListResponse,
     PendingApproval,
     ProcessMessageRequest,
     ProcessMessageResponse,
@@ -19,6 +27,8 @@ from app.models.schemas import (
 from app.services.mock_repos import (
     MockApprovalRepository,
     MockCustomerRepository,
+    MockEventRepository,
+    MockNotHandledRepository,
 )
 
 router = APIRouter(prefix="/api", tags=["copilot"])
@@ -44,6 +54,9 @@ def _to_graph_input(state: ThreadState, latest_message: str) -> dict:
         "errors": [],
         "final_response": "",
         "handled_intents": state.handled_intents.copy(),
+        "requires_manual_review": False,
+        "manual_review_reason_code": "",
+        "manual_review_log": "",
     }
 
 
@@ -70,6 +83,20 @@ async def process_message(payload: ProcessMessageRequest) -> ProcessMessageRespo
 
     THREAD_STORE[payload.thread_id] = thread
 
+    # Emit event
+    event_repo = MockEventRepository()
+    outcome = "manual_forwarded" if graph_state.get("requires_manual_review") else "auto_handled"
+    event_repo.add_event({
+        "type": "message_processed",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "thread_id": payload.thread_id,
+        "intents": [i.value for i in thread.detected_intents],
+        "metadata": {
+            "outcome": outcome,
+            "reason": graph_state.get("manual_review_reason_code")
+        }
+    })
+
     return ProcessMessageResponse(
         thread_id=thread.thread_id,
         assistant_reply=thread.final_response,
@@ -77,6 +104,8 @@ async def process_message(payload: ProcessMessageRequest) -> ProcessMessageRespo
         auth_verified=thread.auth_verified,
         entities=thread.entities,
         workflow_steps=thread.workflow_steps,
+        requires_manual_review=graph_state.get("requires_manual_review", False),
+        manual_review_reason=graph_state.get("manual_review_reason_code"),
     )
 
 
@@ -119,6 +148,17 @@ async def approve_change(approval_id: str):
     
     # 3. Remove from pending
     approval_repo.remove_pending(approval_id)
+
+    # Emit event
+    event_repo = MockEventRepository()
+    event_repo.add_event({
+        "type": "approval_approved",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "thread_id": approval["thread_id"],
+        "intents": [approval["intent"]],
+        "metadata": {"approval_id": approval_id}
+    })
+
     return {"status": "success"}
 
 
@@ -139,7 +179,137 @@ async def reject_change(approval_id: str):
     
     # 2. Remove from pending
     approval_repo.remove_pending(approval_id)
+
+    # Emit event
+    event_repo = MockEventRepository()
+    event_repo.add_event({
+        "type": "approval_rejected",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "thread_id": approval["thread_id"],
+        "intents": [approval["intent"]],
+        "metadata": {"approval_id": approval_id}
+    })
+
     return {"status": "success"}
+
+
+@router.get("/not-handled-emails", response_model=NotHandledEmailListResponse)
+async def list_not_handled_emails() -> NotHandledEmailListResponse:
+    repo = MockNotHandledRepository()
+    records = repo.list_pending()
+    emails = [NotHandledEmail(**r) for r in records]
+    return NotHandledEmailListResponse(emails=emails)
+
+
+@router.post("/not-handled-emails/{item_id}/resolve")
+async def resolve_not_handled_email(item_id: str):
+    repo = MockNotHandledRepository()
+    item = repo.get_by_id(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Email record not found")
+    
+    # Notify thread if it exists
+    thread = THREAD_STORE.get(item["thread_id"])
+    if thread:
+        thread.messages.append(Message(
+            role="assistant",
+            content="RESOLVED: This request was manually reviewed and resolved by an operator."
+        ))
+    
+    repo.mark_resolved(item_id)
+
+    # Emit event
+    event_repo = MockEventRepository()
+    event_repo.add_event({
+        "type": "manual_resolved",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "thread_id": item["thread_id"],
+        "intents": item["detected_intents"],
+        "metadata": {"item_id": item_id, "reason_code": item["reason_code"]}
+    })
+
+    return {"status": "success"}
+
+
+@router.get("/dashboard", response_model=DashboardResponse)
+async def get_dashboard_stats(window: str = Query("7d", regex="^(today|7d|30d|90d)$")) -> DashboardResponse:
+    event_repo = MockEventRepository()
+    
+    # Calculate start time
+    now = datetime.now(timezone.utc)
+    if window == "today":
+        start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif window == "7d":
+        start_time = now - timedelta(days=7)
+    elif window == "30d":
+        start_time = now - timedelta(days=30)
+    else:  # 90d
+        start_time = now - timedelta(days=90)
+        
+    events = event_repo.get_events_after(start_time)
+    
+    # KPI Calculations
+    total_processed = sum(1 for e in events if e["type"] == "message_processed")
+    auto_handled = sum(1 for e in events if e["type"] == "message_processed" and e["metadata"].get("outcome") == "auto_handled")
+    manual_forwarded = sum(1 for e in events if e["type"] == "message_processed" and e["metadata"].get("outcome") == "manual_forwarded")
+    approvals = sum(1 for e in events if e["type"] == "approval_approved")
+    rejections = sum(1 for e in events if e["type"] == "approval_rejected")
+    
+    automation_rate = (auto_handled / total_processed * 100) if total_processed > 0 else 0
+    
+    # Timeseries (Grouped by Day)
+    timeseries_map: dict[str, dict] = {}
+    
+    # Initialize all days in window to 0
+    curr = start_time
+    while curr <= now:
+        day_str = curr.strftime("%Y-%m-%d")
+        timeseries_map[day_str] = {"date": day_str, "processed": 0, "auto_handled": 0, "manual_forwarded": 0}
+        curr += timedelta(days=1)
+        
+    for e in events:
+        if e["type"] == "message_processed":
+            day_str = datetime.fromisoformat(e["timestamp"].replace("Z", "+00:00")).strftime("%Y-%m-%d")
+            if day_str in timeseries_map:
+                timeseries_map[day_str]["processed"] += 1
+                if e["metadata"].get("outcome") == "auto_handled":
+                    timeseries_map[day_str]["auto_handled"] += 1
+                else:
+                    timeseries_map[day_str]["manual_forwarded"] += 1
+                    
+    timeseries = sorted(timeseries_map.values(), key=lambda x: x["date"])
+    
+    # Intent Breakdown
+    intent_map: dict[str, int] = {}
+    for e in events:
+        if e["type"] == "message_processed":
+            for intent in e["intents"]:
+                intent_map[intent] = intent_map.get(intent, 0) + 1
+    
+    intents = [DashboardIntentBreakdown(intent=k, count=v) for k, v in intent_map.items()]
+    
+    # Reason Breakdown
+    reason_map: dict[str, int] = {}
+    for e in events:
+        if e["type"] == "message_processed" and e["metadata"].get("outcome") == "manual_forwarded":
+            reason = e["metadata"].get("reason", "UNKNOWN")
+            reason_map[reason] = reason_map.get(reason, 0) + 1
+            
+    reasons = [DashboardReasonBreakdown(reason=k, count=v) for k, v in reason_map.items()]
+    
+    return DashboardResponse(
+        kpis=DashboardKpis(
+            total_processed=total_processed,
+            auto_handled=auto_handled,
+            manual_forwarded=manual_forwarded,
+            approvals=approvals,
+            rejections=rejections,
+            automation_rate=round(automation_rate, 1)
+        ),
+        timeseries=timeseries,
+        intents=intents,
+        reasons=reasons
+    )
 
 
 @router.get("/threads/{thread_id}", response_model=ThreadStateResponse)

@@ -1,0 +1,65 @@
+[
+  {
+    "type": "message_processed",
+    "timestamp": "2026-02-20T10:00:00.000000",
+    "thread_id": "hist-1",
+    "intents": ["MeterReadingSubmission"],
+    "metadata": { "outcome": "auto_handled" }
+  },
+  {
+    "type": "message_processed",
+    "timestamp": "2026-02-20T11:00:00.000000",
+    "thread_id": "hist-2",
+    "intents": ["ProductInfoRequest"],
+    "metadata": { "outcome": "auto_handled" }
+  },
+  {
+    "type": "message_processed",
+    "timestamp": "2026-02-21T09:30:00.000000",
+    "thread_id": "hist-3",
+    "intents": ["PersonalDataChange"],
+    "metadata": { "outcome": "manual_forwarded", "reason": "SECURITY_CHECK" }
+  },
+  {
+    "type": "approval_approved",
+    "timestamp": "2026-02-21T10:00:00.000000",
+    "thread_id": "hist-3",
+    "intents": ["PersonalDataChange"],
+    "metadata": {}
+  },
+  {
+    "type": "message_processed",
+    "timestamp": "2026-02-22T14:20:00.000000",
+    "thread_id": "hist-4",
+    "intents": ["GeneralFeedback"],
+    "metadata": { "outcome": "auto_handled" }
+  },
+  {
+    "type": "message_processed",
+    "timestamp": "2026-02-23T08:15:00.000000",
+    "thread_id": "hist-5",
+    "intents": [],
+    "metadata": { "outcome": "manual_forwarded", "reason": "OUT_OF_SCOPE" }
+  },
+  {
+    "type": "message_processed",
+    "timestamp": "2026-02-24T16:45:00.000000",
+    "thread_id": "hist-6",
+    "intents": ["ContractIssues"],
+    "metadata": { "outcome": "auto_handled" }
+  },
+  {
+    "type": "message_processed",
+    "timestamp": "2026-02-25T11:10:00.000000",
+    "thread_id": "hist-7",
+    "intents": ["MeterReadingSubmission"],
+    "metadata": { "outcome": "auto_handled" }
+  },
+  {
+    "type": "message_processed",
+    "timestamp": "2026-02-26T09:00:00.000000",
+    "thread_id": "hist-8",
+    "intents": ["ProductInfoRequest"],
+    "metadata": { "outcome": "auto_handled" }
+  }
+]

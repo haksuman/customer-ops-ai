@@ -18,3 +18,6 @@ class GraphState(TypedDict):
     final_response: str
     errors: list[str]
     handled_intents: list[Intent]
+    requires_manual_review: bool
+    manual_review_reason_code: str
+    manual_review_log: str

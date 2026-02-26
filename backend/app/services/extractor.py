@@ -82,6 +82,10 @@ Extract the following from the customer email and return a JSON object matching 
 - {Intent.PRODUCT_INFO_REQUEST.value}: questions about tariffs, pricing, or green energy
 - {Intent.GENERAL_FEEDBACK.value}: compliments, complaints, or open comments
 
+Only return one of the above intents when the message is clearly about energy-utility customer service.
+If the message is mainly about unrelated topics (e.g., tax advice, legal advice, accounting, medical topics),
+return an empty intents list.
+
 **Entities** — extract if present, otherwise return null:
 - contract_number: The primary identification number (usually starts with 'LB-'). Note that customers frequently refer to this as their 'meter number' or 'customer number'. If an identification number like 'LB-XXXXXX' is provided, prioritize extracting it as the contract_number.
 - full_name: full name of the sender

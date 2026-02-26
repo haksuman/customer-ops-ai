@@ -11,7 +11,7 @@ from app.core.llm import get_llm
 from app.domain.auth_policy import AUTH_FIELD_LABELS, get_missing_auth_fields, get_missing_auth_labels, needs_auth, verify_auth
 from app.models.schemas import AUTH_REQUIRED_INTENTS, Intent, PendingApproval
 from app.services.extractor import detect_intents, extract_entities
-from app.services.mock_repos import MockCustomerRepository, MockProductRepository, MockApprovalRepository
+from app.services.mock_repos import MockCustomerRepository, MockProductRepository, MockApprovalRepository, MockNotHandledRepository
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +51,9 @@ def handle_no_auth_intents_node(state: dict[str, Any]) -> dict[str, Any]:
     step = "handle_no_auth_intents"
     _append_step(state, step, "running", "Handling intents that do not require authentication.")
     
-    handled = state.get("handled_intents", [])
     no_auth_intents = [
         intent for intent in state["detected_intents"] 
-        if intent not in AUTH_REQUIRED_INTENTS and intent not in handled
+        if intent not in AUTH_REQUIRED_INTENTS
     ]
     
     if not no_auth_intents:
@@ -78,10 +77,9 @@ def auth_policy_node(state: dict[str, Any]) -> dict[str, Any]:
     step = "auth_policy"
     _append_step(state, step, "running", "Evaluating whether authentication is required.")
 
-    handled = state.get("handled_intents", [])
     protected_intents = [
         intent for intent in state["detected_intents"] 
-        if intent in AUTH_REQUIRED_INTENTS and intent not in handled
+        if intent in AUTH_REQUIRED_INTENTS
     ]
     
     pending = state.get("pending_protected_intents", [])
@@ -312,4 +310,87 @@ def aggregate_response_node(state: dict[str, Any]) -> dict[str, Any]:
         state["errors"].append(f"LLM aggregation failed, used fallback: {exc}")
 
     _append_step(state, step, "completed", "Final response composed.")
+    return state
+
+
+def fallback_check_node(state: dict[str, Any]) -> dict[str, Any]:
+    step = "fallback_check"
+    _append_step(state, step, "running", "Checking if the request needs manual handling.")
+
+    detected_intents = state.get("detected_intents", [])
+    latest_message = str(state.get("latest_message", "")).lower()
+    
+    # Logic for fallback:
+    # 1. Out-of-scope topics (e.g., tax/legal/accounting questions)
+    # 2. No intents detected at all
+    # 3. No customer-facing response generated in this run and no auth follow-up pending
+    
+    requires_manual = False
+    reason_code = ""
+    ai_log = ""
+
+    out_of_scope_keywords = (
+        "tax",
+        "taxes",
+        "tax declaration",
+        "tax deduction",
+        "income tax",
+        "steuer",
+        "steuererklaerung",
+        "steuererklärung",
+        "accounting advice",
+        "legal advice",
+        "lawyer",
+    )
+    if any(keyword in latest_message for keyword in out_of_scope_keywords):
+        requires_manual = True
+        reason_code = "OUT_OF_SCOPE"
+        ai_log = (
+            "The message appears to request tax/legal/accounting guidance, "
+            "which is outside supported utility customer-service intents."
+        )
+    elif not detected_intents:
+        requires_manual = True
+        reason_code = "OUT_OF_SCOPE"
+        ai_log = "No clear customer intent could be detected in the email."
+    elif (
+        not state.get("response_parts")
+        and not state.get("auth_missing_fields")
+        and not state.get("pending_protected_intents")
+    ):
+        requires_manual = True
+        reason_code = "MANUAL_ACTION_REQUIRED"
+        ai_log = (
+            f"Detected intents {detected_intents} but no automated response "
+            "content was generated for this message."
+        )
+
+    if requires_manual:
+        state["requires_manual_review"] = True
+        state["manual_review_reason_code"] = reason_code
+        state["manual_review_log"] = ai_log
+        
+        # Persist to not-handled queue
+        repo = MockNotHandledRepository()
+        item = {
+            "id": str(uuid.uuid4()),
+            "thread_id": state.get("thread_id", "unknown"),
+            "original_message": state.get("latest_message", ""),
+            "detected_intents": [i.value for i in detected_intents],
+            "reason_code": reason_code,
+            "ai_log": ai_log,
+            "created_at": datetime.now().isoformat(),
+            "status": "pending"
+        }
+        repo.add_item(item)
+        
+        # Replace auto-generated content so customer receives a clear handoff message only.
+        state["response_parts"] = [
+            "Thank you for your message. I have forwarded your request to a human support specialist "
+            "because it requires manual review. A responsible team member will contact you shortly."
+        ]
+        _append_step(state, step, "completed", f"Request forwarded to manual queue: {reason_code}.")
+    else:
+        _append_step(state, step, "completed", "Automated handling is proceeding.")
+
     return state

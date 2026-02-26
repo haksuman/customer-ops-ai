@@ -60,6 +60,8 @@ class ProcessMessageResponse(BaseModel):
     auth_verified: bool
     entities: dict[str, Any]
     workflow_steps: list[WorkflowStep]
+    requires_manual_review: bool = False
+    manual_review_reason: str | None = None
 
 
 class ThreadStateResponse(BaseModel):
@@ -78,5 +80,61 @@ class PendingApproval(BaseModel):
     customer_info: dict[str, Any] | None = None
 
 
+class NotHandledEmail(BaseModel):
+    id: str
+    thread_id: str
+    original_message: str
+    detected_intents: list[Intent]
+    reason_code: str
+    ai_log: str
+    created_at: str
+    status: Literal["pending", "resolved"] = "pending"
+
+
 class ApprovalListResponse(BaseModel):
     approvals: list[PendingApproval]
+
+
+class NotHandledEmailListResponse(BaseModel):
+    emails: list[NotHandledEmail]
+
+
+class ProcessingEvent(BaseModel):
+    type: str  # message_processed, auto_handled, manual_forwarded, approval_approved, approval_rejected, manual_resolved
+    timestamp: str
+    thread_id: str
+    intents: list[Intent]
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DashboardKpis(BaseModel):
+    total_processed: int
+    auto_handled: int
+    manual_forwarded: int
+    approvals: int
+    rejections: int
+    automation_rate: float
+
+
+class DashboardTimeseriesPoint(BaseModel):
+    date: str
+    processed: int
+    auto_handled: int
+    manual_forwarded: int
+
+
+class DashboardIntentBreakdown(BaseModel):
+    intent: str
+    count: int
+
+
+class DashboardReasonBreakdown(BaseModel):
+    reason: str
+    count: int
+
+
+class DashboardResponse(BaseModel):
+    kpis: DashboardKpis
+    timeseries: list[DashboardTimeseriesPoint]
+    intents: list[DashboardIntentBreakdown]
+    reasons: list[DashboardReasonBreakdown]

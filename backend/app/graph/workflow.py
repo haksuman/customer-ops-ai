@@ -9,6 +9,7 @@ from app.graph.nodes import (
     auth_policy_node,
     compose_auth_request_node,
     extract_and_detect_node,
+    fallback_check_node,
     handle_no_auth_intents_node,
     handle_protected_intents_node,
 )
@@ -29,6 +30,7 @@ def build_workflow():
     graph.add_node("auth_policy", auth_policy_node)
     graph.add_node("compose_auth_request", compose_auth_request_node)
     graph.add_node("handle_protected_intents", handle_protected_intents_node)
+    graph.add_node("fallback_check", fallback_check_node)
     graph.add_node("aggregate_response", aggregate_response_node)
 
     graph.add_edge(START, "extract_and_detect")
@@ -42,8 +44,9 @@ def build_workflow():
             "handle_protected_intents": "handle_protected_intents",
         },
     )
-    graph.add_edge("compose_auth_request", "aggregate_response")
-    graph.add_edge("handle_protected_intents", "aggregate_response")
+    graph.add_edge("compose_auth_request", "fallback_check")
+    graph.add_edge("handle_protected_intents", "fallback_check")
+    graph.add_edge("fallback_check", "aggregate_response")
     graph.add_edge("aggregate_response", END)
 
     return graph.compile()

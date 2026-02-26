@@ -21,16 +21,28 @@ export function ProcessPanel(props: ProcessPanelProps) {
       </div>
 
       <h3>Detected Intents</h3>
-      <ul className="list">
-        {intents.length === 0 ? <li>No intents detected yet.</li> : intents.map((intent) => <li key={intent}>{intent}</li>)}
-      </ul>
+      <div className="chipRow">
+        {intents.length === 0 ? (
+          <span className="chip info">No intents</span>
+        ) : (
+          intents.map((intent) => (
+            <span key={intent} className="chip info">
+              {intent}
+            </span>
+          ))
+        )}
+      </div>
 
       <h3>Extracted Entities</h3>
       <ul className="list">
         {entityEntries.length === 0 ? (
           <li>No entities extracted yet.</li>
         ) : (
-          entityEntries.map(([key, value]) => <li key={key}>{key}: {String(value)}</li>)
+          entityEntries.map(([key, value]) => (
+            <li key={key}>
+              <strong>{key}:</strong> {String(value)}
+            </li>
+          ))
         )}
       </ul>
 

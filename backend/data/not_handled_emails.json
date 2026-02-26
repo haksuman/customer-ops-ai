@@ -1,0 +1,44 @@
+[
+  {
+    "id": "e4a1b2c3-d4e5-4f6a-8b7c-9d0e1f2a3b4c",
+    "thread_id": "out-of-scope-1",
+    "original_message": "Can you help me with my taxes? I don't understand the energy tax deduction.",
+    "detected_intents": [],
+    "reason_code": "OUT_OF_SCOPE",
+    "ai_log": "The customer is asking about tax advice which is outside the scope of our energy utility service assistant.",
+    "created_at": "2026-02-26T10:00:00.000000",
+    "status": "pending"
+  },
+  {
+    "id": "f5b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "thread_id": "complex-request-1",
+    "original_message": "I have a very specific issue with my meter. It's making a strange buzzing sound and the display is flickering, but only when my solar panels are active. I think I need a technician to visit me on Tuesday between 2 PM and 4 PM.",
+    "detected_intents": [
+      "MeterReadingSubmission"
+    ],
+    "reason_code": "MANUAL_ACTION_REQUIRED",
+    "ai_log": "The request involves hardware troubleshooting and specific technician scheduling which cannot be automated.",
+    "created_at": "2026-02-26T10:30:00.000000",
+    "status": "pending"
+  },
+  {
+    "id": "df63fa7f-4977-44f3-99d6-960128dd1fb3",
+    "thread_id": "debug-tax-thread",
+    "original_message": "Can you help me with my taxes? I don't understand the energy tax deduction.",
+    "detected_intents": [],
+    "reason_code": "OUT_OF_SCOPE",
+    "ai_log": "The message appears to request tax/legal/accounting guidance, which is outside supported utility customer-service intents.",
+    "created_at": "2026-02-26T18:00:23.638577",
+    "status": "pending"
+  },
+  {
+    "id": "c0f51dae-9180-4c59-a042-09c0edd90ddc",
+    "thread_id": "demo-thread-1",
+    "original_message": "Can you help me with my taxes? I don't understand the energy tax deduction.\n\n",
+    "detected_intents": [],
+    "reason_code": "OUT_OF_SCOPE",
+    "ai_log": "The message appears to request tax/legal/accounting guidance, which is outside supported utility customer-service intents.",
+    "created_at": "2026-02-26T18:02:58.719887",
+    "status": "pending"
+  }
+]

@@ -23,6 +23,8 @@ export type ProcessResponse = {
   auth_verified: boolean
   entities: Record<string, unknown>
   workflow_steps: WorkflowStep[]
+  requires_manual_review?: boolean
+  manual_review_reason?: string
 }
 
 export type Scenario = {
@@ -42,4 +44,48 @@ export type PendingApproval = {
   is_dangerous: boolean
   created_at: string
   customer_info?: Record<string, unknown>
+}
+
+export type NotHandledEmail = {
+  id: string
+  thread_id: string
+  original_message: string
+  detected_intents: Intent[]
+  reason_code: string
+  ai_log: string
+  created_at: string
+  status: 'pending' | 'resolved'
+}
+
+export type DashboardKpis = {
+  total_processed: number
+  auto_handled: number
+  manual_forwarded: number
+  approvals: number
+  rejections: number
+  automation_rate: number
+}
+
+export type DashboardTimeseriesPoint = {
+  date: string
+  processed: number
+  auto_handled: number
+  manual_forwarded: number
+}
+
+export type DashboardIntentBreakdown = {
+  intent: string
+  count: number
+}
+
+export type DashboardReasonBreakdown = {
+  reason: string
+  count: number
+}
+
+export type DashboardResponse = {
+  kpis: DashboardKpis
+  timeseries: DashboardTimeseriesPoint[]
+  intents: DashboardIntentBreakdown[]
+  reasons: DashboardReasonBreakdown[]
 }

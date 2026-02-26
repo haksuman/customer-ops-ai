@@ -36,6 +36,18 @@ const SCENARIOS: Scenario[] = [
     description: 'Data Change: Requesting a name change (Requires authentication).',
     text: "Hello LichtBlick,\n\nI'm Thomas Wagner (Contract LB-9900112, PLZ 60313). I've recently got married and would like to change my name on the contract to Thomas Müller.\n\nRegards,\nThomas Wagner",
   },
+  {
+    id: 'out-of-scope',
+    label: 'Prompt 6',
+    description: 'Out of Scope: Asking for tax advice (Should be forwarded).',
+    text: "Dear LichtBlick,\n\nI'm happy with my electricity contract, but I have a question about my income tax declaration. Do I need to report the solar feed-in tariff as income? If so, which form do I use?\n\nBest regards,\nMax Mustermann",
+  },
+  {
+    id: 'complex-request',
+    label: 'Prompt 7',
+    description: 'Complex Request: Hardware issue + Scheduling (Should be forwarded).',
+    text: "Hello,\n\nMy smart meter (LB-123456) is making a loud buzzing sound and seems very hot. I'm worried it might be a fire hazard. Can someone come and check it today? I'm home until 4 PM.\n\nThanks,\nErika Schmidt",
+  },
 ]
 
 function App() {
@@ -89,6 +101,8 @@ function App() {
       <nav className="nav">
         <Link to="/" className="nav-link active">Customer Portal</Link>
         <Link to="/operator" className="nav-link">Operator Dashboard</Link>
+        <Link to="/not-handled" className="nav-link">Not Handled Emails</Link>
+        <Link to="/dashboard" className="nav-link">Manager Dashboard</Link>
       </nav>
       <header>
         <h1>Agentic Customer Copilot</h1>
