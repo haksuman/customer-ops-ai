@@ -7,7 +7,7 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from app.core.llm import get_llm
+from app.core.llm import get_llm, normalize_llm_output
 from app.domain.auth_policy import AUTH_FIELD_LABELS, get_missing_auth_fields, get_missing_auth_labels, needs_auth, verify_auth
 from app.models.schemas import AUTH_REQUIRED_INTENTS, Intent, PendingApproval
 from app.services.extractor import detect_intents, extract_entities
@@ -214,7 +214,7 @@ def handle_protected_intents_node(state: dict[str, Any]) -> dict[str, Any]:
                 import re
                 
                 # More robust JSON extraction
-                content = safety_res.content.strip()
+                content = normalize_llm_output(safety_res.content).strip()
                 json_match = re.search(r"\{[\s\S]*\}", content)
                 if json_match:
                     content = json_match.group(0)
@@ -317,7 +317,7 @@ def aggregate_response_node(state: dict[str, Any]) -> dict[str, Any]:
     try:
         llm = get_llm()
         response = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
-        state["final_response"] = response.content
+        state["final_response"] = normalize_llm_output(response.content)
     except Exception as exc:
         logger.exception("aggregate_llm_failed", extra={"node": step})
         state["final_response"] = (

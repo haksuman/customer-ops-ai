@@ -163,3 +163,17 @@ def test_meter_anomaly_no_persistence():
         # Let's check which file was saved.
         save_calls = [call[0][0] for call in mock_save.call_args_list]
         assert "customers.json" not in save_calls
+
+
+def test_gemini_list_content_normalization():
+    # Simulate Gemini list content in aggregate response
+    list_content = [{"type": "text", "text": "Hello, how can I help?"}]
+    
+    result = run_graph(
+        "Hello",
+        mock_extract=_mock_extraction(intents=[Intent.GENERAL_FEEDBACK]),
+        mock_llm_reply=list_content
+    )
+    
+    # Should be normalized to string
+    assert result["final_response"] == "Hello, how can I help?"

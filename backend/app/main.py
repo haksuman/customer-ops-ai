@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-import app.core.env  # load repo-root .env before other app code
+import app.core.env  # load backend/.env before other app code
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
