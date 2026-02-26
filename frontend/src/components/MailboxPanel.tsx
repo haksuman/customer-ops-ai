@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { Message, Scenario } from '../types'
 
 type MailboxPanelProps = {
@@ -27,6 +28,14 @@ export function MailboxPanel(props: MailboxPanelProps) {
     onScenarioSelect,
   } = props
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [messages, isProcessing])
+
   return (
     <section className="panel">
       <h2>Customer Mailbox</h2>
@@ -38,13 +47,23 @@ export function MailboxPanel(props: MailboxPanelProps) {
           placeholder="demo-thread-1"
         />
       </label>
-      <div className="messages">
+      <div className="messages" ref={scrollRef}>
         {messages.map((message, index) => (
           <article key={`${message.role}-${index}`} className={`bubble ${message.role}`}>
             <strong>{message.role === 'customer' ? 'Customer' : 'Assistant'}</strong>
             <p>{message.content}</p>
           </article>
         ))}
+        {isProcessing && (
+          <article className="bubble assistant typing">
+            <strong>Assistant</strong>
+            <div className="typing-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </article>
+        )}
       </div>
 
       <div className="scenarios">

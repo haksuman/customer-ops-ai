@@ -50,7 +50,7 @@ header p {
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 2fr 1fr;
   gap: var(--spacing-md);
   margin-top: var(--spacing-lg);
 }
@@ -151,12 +151,15 @@ button:disabled {
   border-radius: var(--radius-sm);
   padding: var(--spacing-sm) var(--spacing-md);
   max-width: 85%;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .bubble.customer {
   background: #eff6ff;
   align-self: flex-start;
   border-bottom-left-radius: 2px;
+  border: 1px solid #dbeafe;
 }
 
 .bubble.assistant {
@@ -164,6 +167,45 @@ button:disabled {
   align-self: flex-end;
   border-bottom-right-radius: 2px;
   border: 1px solid #dcfce7;
+}
+
+.bubble.typing {
+  padding: 12px 20px;
+  min-width: 80px;
+}
+
+.typing-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+}
+
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  background-color: #16a34a;
+  border-radius: 50%;
+  display: inline-block;
+  animation: typing-bounce 1.4s infinite ease-in-out both;
+}
+
+.typing-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes typing-bounce {
+  0%, 80%, 100% { 
+    transform: scale(0);
+    opacity: 0.3;
+  } 40% { 
+    transform: scale(1.0);
+    opacity: 1;
+  }
 }
 
 .bubble strong {

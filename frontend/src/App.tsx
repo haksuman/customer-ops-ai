@@ -16,7 +16,7 @@ const SCENARIOS: Scenario[] = [
     id: 'missing-data',
     label: 'Prompt 2',
     description: 'Missing Data: Meter reading provided but missing postal code.',
-    text: "Hello,\n\nI am Hans Müller (Contract LB-1122334). My meter reading is 950 kWh.\n\nThanks.",
+    text: 'Hello,\n\nI am Hans Mueller (Contract LB-1122334). My meter reading is 950 kWh.\n\nThanks.',
   },
   {
     id: 'anomaly',
@@ -28,7 +28,7 @@ const SCENARIOS: Scenario[] = [
     id: 'pure-query',
     label: 'Prompt 4',
     description: 'Pure Query: Only asking about tariffs (No authentication required).',
-    text: "Hi! Can you tell me more about your dynamic tariff? How does it work and what are the benefits?",
+    text: 'Hi! Can you tell me more about your dynamic tariff? How does it work and what are the benefits?',
   },
   {
     id: 'data-change',
@@ -48,7 +48,7 @@ const SCENARIOS: Scenario[] = [
     description: 'Complex Request: Hardware issue + Scheduling (Should be forwarded).',
     text: "Hello,\n\nMy smart meter (LB-123456) is making a loud buzzing sound and seems very hot. I'm worried it might be a fire hazard. Can someone come and check it today? I'm home until 4 PM.\n\nThanks,\nErika Schmidt",
   },
-]
+];
 
 function App() {
   const [threadId, setThreadId] = useState('demo-thread-1')
