@@ -36,7 +36,7 @@ $CONCURRENCY   = "10"
 # Secrets (GEMINI_API_KEY, LANGCHAIN_API_KEY) are set once in the GCP Console:
 #   Cloud Run > customer-ops-backend > Edit and Deploy > Variables and Secrets
 $LLM_PROVIDER         = "gemini"
-$GEMINI_MODEL         = "gemini-2.0-flash"
+$GEMINI_MODEL         = "gemini-3-flash-preview"
 $LANGCHAIN_TRACING_V2 = "false"
 
 # --- Derived ---

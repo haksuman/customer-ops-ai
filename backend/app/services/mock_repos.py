@@ -94,7 +94,11 @@ class MockCustomerRepository:
         return self._customers.get(c_norm)
 
     def update_customer_name(self, contract_number: str, new_name: str) -> bool:
-        customer = self._customers.get(contract_number)
+        from app.services.extractor import normalize_contract_number
+        c_norm = normalize_contract_number(contract_number)
+        if not c_norm:
+            return False
+        customer = self._customers.get(c_norm)
         if not customer:
             return False
         customer["full_name"] = new_name

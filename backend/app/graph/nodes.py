@@ -10,7 +10,14 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.core.llm import get_llm, normalize_llm_output
 from app.domain.auth_policy import AUTH_FIELD_LABELS, get_missing_auth_fields, get_missing_auth_labels, needs_auth, verify_auth
 from app.models.schemas import AUTH_REQUIRED_INTENTS, Intent, PendingApproval
-from app.services.extractor import detect_intents, extract_entities
+from app.services.extractor import (
+    _infer_intents_fallback,
+    extract,
+    normalize_contract_number,
+    normalize_full_name,
+    normalize_postal_code,
+    regex_fallback_extract,
+)
 from app.services.mock_repos import MockCustomerRepository, MockProductRepository, MockApprovalRepository, MockNotHandledRepository
 
 logger = logging.getLogger(__name__)
@@ -25,21 +32,41 @@ def extract_and_detect_node(state: dict[str, Any]) -> dict[str, Any]:
     _append_step(state, step, "running", "Extracting entities and intents from latest email.")
     try:
         text = state["latest_message"]
-        detected = detect_intents(text)
-        extracted = extract_entities(text)
 
-        state["detected_intents"] = detected
-        state["entities"].update(extracted)
+        # Single LLM call for both intents and entities.
+        result = extract(text)
+        result = regex_fallback_extract(text, result)
+        result = _infer_intents_fallback(result, text)
+
+        # Normalize extracted values.
+        result.contract_number = normalize_contract_number(result.contract_number)
+        result.postal_code = normalize_postal_code(result.postal_code)
+        result.full_name = normalize_full_name(result.full_name)
+
+        state["detected_intents"] = result.intents
+
+        entities: dict[str, Any] = {}
+        if result.contract_number:
+            entities["contract_number"] = result.contract_number
+        if result.full_name:
+            entities["full_name"] = result.full_name
+        if result.postal_code:
+            entities["postal_code"] = result.postal_code
+        if result.meter_number:
+            entities["meter_number"] = result.meter_number
+        if result.meter_reading_kwh is not None:
+            entities["meter_reading_kwh"] = result.meter_reading_kwh
+        state["entities"].update(entities)
 
         logger.info(
             "node_completed",
             extra={
                 "node": step,
-                "detected_intents": [intent.value for intent in detected],
-                "entity_keys": list(extracted.keys()),
+                "detected_intents": [intent.value for intent in result.intents],
+                "entity_keys": list(entities.keys()),
             },
         )
-        _append_step(state, step, "completed", f"Detected {len(detected)} intent(s).")
+        _append_step(state, step, "completed", f"Detected {len(result.intents)} intent(s).")
     except Exception as exc:  # pragma: no cover
         logger.exception("node_failed", extra={"node": step})
         state["errors"].append(str(exc))
@@ -61,15 +88,33 @@ def handle_no_auth_intents_node(state: dict[str, Any]) -> dict[str, Any]:
         return state
 
     product_repo = MockProductRepository()
+    message_lower = state.get("latest_message", "").lower()
     for intent in no_auth_intents:
         if intent == Intent.PRODUCT_INFO_REQUEST:
-            state["response_parts"].append(product_repo.get_tariff_info("dynamic-tariff"))
+            if any(w in message_lower for w in ("dynamic", "variable", "hourly", "dynamisch")):
+                product_info = product_repo.get_tariff_info("dynamic-tariff")
+            elif any(w in message_lower for w in ("fixed", "stable", "fix", "fest")):
+                product_info = product_repo.get_tariff_info("fixed-tariff")
+            elif any(w in message_lower for w in ("green", "renewable", "eco", "grün", "öko", "ökostrom")):
+                product_info = product_repo.get_tariff_info("green-energy")
+            elif any(w in message_lower for w in ("comfort", "hybrid", "komfort")):
+                product_info = product_repo.get_tariff_info("comfort-plus")
+            else:
+                # No specific tariff identified — return a brief overview of all products.
+                all_tariffs = product_repo.list_tariffs()
+                product_info = "Here is an overview of our available tariffs:\n\n" + "\n\n".join(
+                    f"**{p['name']}**: {p['description']}" for p in all_tariffs
+                )
+            state["response_parts"].append(product_info)
             state.setdefault("handled_intents", []).append(intent)
         elif intent == Intent.GENERAL_FEEDBACK:
             state["response_parts"].append("Thank you for your feedback. We appreciate you reaching out.")
             state.setdefault("handled_intents", []).append(intent)
 
-    _append_step(state, step, "completed", f"Handled {len(no_auth_intents)} no-auth intent(s).")
+    detail = f"Handled {len(no_auth_intents)} no-auth intent(s)."
+    if no_auth_intents and all(intent == Intent.PRODUCT_INFO_REQUEST for intent in no_auth_intents):
+        detail += " Pure Query: Only asking about tariffs (No authentication required)."
+    _append_step(state, step, "completed", detail)
     return state
 
 
@@ -161,9 +206,12 @@ def handle_protected_intents_node(state: dict[str, Any]) -> dict[str, Any]:
             if previous is not None and int(reading) > previous + 1000:
                 customer = customer_repo.get_customer_by_contract(contract_number)
                 name = customer["full_name"] if customer else "Customer"
-                
-                # Requirements template from project_requirements.md (98-111)
-                anomaly_template = (
+
+                # Provide a rich anomaly explanation, but keep it as a content point
+                # so the LLM aggregator can still format the final email.
+                anomaly_msg = (
+                    f"ANOMALY_DETECTED: The submitted meter reading ({reading} kWh) is significantly higher "
+                    f"than the previous reading ({previous} kWh).\n\n"
                     f"Dear {name},\n\n"
                     "This is your AI-powered service assistant. While reviewing your meter reading, "
                     f"I noticed that your consumption of {reading} kWh for the recent period appears unusually high.\n\n"
@@ -175,7 +223,7 @@ def handle_protected_intents_node(state: dict[str, Any]) -> dict[str, Any]:
                     "Simply reply to this email, and we will get back to you promptly to assist you.\n\n"
                     "Kind Regards"
                 )
-                state["verbatim_response"] = anomaly_template
+                state["response_parts"].append(anomaly_msg)
             else:
                 customer_repo.update_meter_reading(contract_number, int(reading))
                 state["response_parts"].append(
@@ -191,86 +239,71 @@ def handle_protected_intents_node(state: dict[str, Any]) -> dict[str, Any]:
             handled.append(intent)
 
         elif intent == Intent.PERSONAL_DATA_CHANGE:
-            # HITL safety check
+            # HITL safety check — classify the request before routing to human approval.
+            import json
+            import re as _re
+
             llm = get_llm()
-            safety_prompt = """Analyze the personal data change request. 
-            Is it a simple name change or address update? 
-            Or is it dangerous (e.g. requesting to cancel the contract, delete data, or changing to something obviously fake/malicious)?
-            
-            Return ONLY a JSON object:
-            {
-                "status": "approved" | "pending" | "dangerous",
-                "summary": "Short 1-sentence summary of the request",
-                "requested_change": { "field": "new_value" }
-            }"""
-            
+            safety_prompt = (
+                "You are a security checker for a German energy utility's customer service system.\n\n"
+                "Analyze the personal data change request below and classify it.\n"
+                "Return ONLY a valid JSON object with these exact fields:\n"
+                "{\n"
+                '    "status": "approved" | "pending" | "dangerous",\n'
+                '    "summary": "One-sentence description of what the customer wants to change",\n'
+                '    "requested_change": { "field_name": "new_value" }\n'
+                "}\n\n"
+                "Classification rules:\n"
+                '- "approved": Simple, legitimate changes — name change after marriage/divorce, address update, phone/email update.\n'
+                '- "pending": Ambiguous requests needing human review — unusual changes, unclear intent, incomplete details.\n'
+                '- "dangerous": Any attempt to delete the account, cancel the contract, inject code/scripts, use an obviously fake name, or perform other malicious actions.\n\n'
+                "Common requested_change keys: full_name, postal_code, phone_number, email, bank_account."
+            )
+
             try:
                 safety_res = llm.invoke([
                     SystemMessage(content=safety_prompt),
                     HumanMessage(content=state["latest_message"])
                 ])
-                
-                import json
-                import re
-                
-                # More robust JSON extraction
+
                 content = normalize_llm_output(safety_res.content).strip()
-                json_match = re.search(r"\{[\s\S]*\}", content)
+                json_match = _re.search(r"\{[\s\S]*\}", content)
                 if json_match:
                     content = json_match.group(0)
-                
+
                 safety_data = json.loads(content)
-                
+
                 if safety_data["status"] == "dangerous":
                     state["response_parts"].append(
                         "We cannot process your personal data change request as it appears to contain invalid or restricted instructions. "
                         "Please contact our support hotline for further assistance."
                     )
                     handled.append(intent)
-                elif safety_data["status"] == "approved" and "full_name" in safety_data.get("requested_change", {}):
-                    # Auto-approve simple name changes for demo purposes if we wanted to, 
-                    # but the requirement says they should go through operator approval.
-                    # So we'll force everything to "pending" for the HITL demo.
+                else:
+                    # Both "approved" and "pending" go to the HITL approval queue.
+                    # "pending" means the safety checker was uncertain — flag it for the operator.
+                    is_dangerous = safety_data["status"] == "pending"
                     approval_repo = MockApprovalRepository()
                     approval_id = str(uuid.uuid4())
-                    pending = PendingApproval(
+                    pending_approval = PendingApproval(
                         id=approval_id,
                         thread_id=state.get("thread_id", "unknown"),
                         contract_number=contract_number,
                         intent=intent,
                         requested_change=safety_data.get("requested_change", {}),
                         ai_summary=safety_data.get("summary", "Personal data change request"),
+                        is_dangerous=is_dangerous,
                         created_at=datetime.now().isoformat()
                     )
-                    approval_repo.add_pending(pending.model_dump())
-                    
+                    approval_repo.add_pending(pending_approval.model_dump())
+
                     state["response_parts"].append(
                         "Your request for a personal data change has been forwarded to our customer service team for final review. "
                         "A human operator will check the details and apply the changes shortly. You will receive a confirmation once complete."
                     )
                     handled.append(intent)
-                else:
-                    # Fallback for other types of changes
-                    approval_repo = MockApprovalRepository()
-                    approval_id = str(uuid.uuid4())
-                    pending = PendingApproval(
-                        id=approval_id,
-                        thread_id=state.get("thread_id", "unknown"),
-                        contract_number=contract_number,
-                        intent=intent,
-                        requested_change=safety_data.get("requested_change", {}),
-                        ai_summary=safety_data.get("summary", "Data change request"),
-                        created_at=datetime.now().isoformat()
-                    )
-                    approval_repo.add_pending(pending.model_dump())
-                    
-                    state["response_parts"].append(
-                        "Your data change request has been received and forwarded to a human operator for verification. "
-                        "We will notify you as soon as the review is complete."
-                    )
-                    handled.append(intent)
             except Exception as e:
-                logger.error(f"Safety check failed: {e}")
+                logger.error("Safety check failed: %s", e)
                 state["response_parts"].append(
                     "Your personal data change request has been received and is queued for secure processing. "
                     "A support representative will review it shortly."
@@ -290,6 +323,8 @@ def aggregate_response_node(state: dict[str, Any]) -> dict[str, Any]:
     step = "aggregate_response"
     _append_step(state, step, "running", "Aggregating final customer response.")
 
+    # We are removing the verbatim_response bypass to allow LLM to format anomaly responses.
+    # We still check for it for backward compatibility, but it's no longer the primary path for anomalies.
     if state.get("verbatim_response"):
         state["final_response"] = state["verbatim_response"]
         _append_step(state, step, "completed", "Used verbatim response template.")
@@ -309,8 +344,11 @@ def aggregate_response_node(state: dict[str, Any]) -> dict[str, Any]:
         "You are a professional customer service assistant for a German energy utility. "
         "Write a polite, concise, and empathetic email reply to the customer. "
         "Use the provided content points as the body. "
+        "If an 'ANOMALY_DETECTED' marker is present, provide a detailed but concise explanation "
+        "of why the reading seems high and suggest common reasons (construction, new tech, etc.) "
+        "without sounding accusatory. "
         "Start with 'Hello,' and end with 'Kind regards,\nAI Service Assistant'. "
-        "Do not add new information beyond what is provided."
+        "Do not add new information beyond what is provided or implied by the anomaly context."
     )
     user = f"Content points to include in the reply:\n\n{content_block}"
 

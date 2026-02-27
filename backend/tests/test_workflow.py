@@ -96,16 +96,18 @@ def test_meter_anomaly_branch():
         postal_code="20097",
         meter_reading_kwh=3000,
     )
+    # The anomaly response now goes through the LLM aggregator.
+    # We mock the LLM reply to confirm it's being used.
+    mock_llm_reply = "Anomaly: Valid auth but unusually high meter reading. Please check."
     result = run_graph(
         "Please process meter reading 3000 kWh. Contract LB-9876543, Julia Meyer, 20097.",
         mock_extract=extraction,
+        mock_llm_reply=mock_llm_reply
     )
     assert result["auth_verified"] is True
-    # Verify verbatim response is used
-    assert "Dear Julia Meyer," in result["final_response"]
-    assert "consumption of 3000 kWh" in result["final_response"]
-    assert "unusually high" in result["final_response"]
-    assert "Kind Regards" in result["final_response"]
+    # Verify the LLM-generated response is used instead of a verbatim template
+    assert result["final_response"] == mock_llm_reply
+    assert "ANOMALY_DETECTED" in "\n".join(result["response_parts"])
 
 
 def test_meter_reading_persistence():
@@ -150,13 +152,15 @@ def test_meter_anomaly_no_persistence():
     )
     
     with patch("app.services.mock_repos._save") as mock_save:
+        mock_llm_reply = "Anomaly detected. Not recorded."
         result = run_graph(
             "My reading is 3000. Contract LB-9876543, Julia Meyer, 20097.",
             mock_extract=extraction,
+            mock_llm_reply=mock_llm_reply
         )
         
         assert result["auth_verified"] is True
-        assert "unusually high" in result["final_response"]
+        assert result["final_response"] == mock_llm_reply
         
         # Verify persistence was NOT called for meter reading (it might be called for other things, but here only meter update is expected)
         # Actually MockEventRepository also calls _save.
@@ -177,3 +181,67 @@ def test_gemini_list_content_normalization():
     
     # Should be normalized to string
     assert result["final_response"] == "Hello, how can I help?"
+
+
+def test_contract_number_recovered_by_regex_avoids_missing_auth():
+    """
+    Simulate the LLM missing contract_number but the raw email containing
+    'contract number is LB-5566778'. The regex fallback should recover the
+    contract number so auth does not ask for it again.
+    """
+    extraction = _mock_extraction(
+        intents=[Intent.METER_READING_SUBMISSION],
+        contract_number=None,
+        full_name="Anna Schmidt",
+        postal_code="80331",
+        meter_reading_kwh=4500,
+    )
+
+    message = (
+        "Dear Team,\n\n"
+        "I'm Anna Schmidt, living in 80331. "
+        "My contract number is LB-5566778. "
+        "I want to report my meter reading as 4500 kWh.\n\n"
+        "Best, Anna."
+    )
+
+    result = run_graph(
+        message,
+        mock_extract=extraction,
+        mock_llm_reply="Hello,\n\nYour meter reading has been recorded.\n\nKind regards,\nAI Service Assistant",
+    )
+
+    # Contract number should have been recovered and normalized by regex fallback + normalization.
+    assert result["entities"].get("contract_number") == "LB-5566778"
+    # Auth should succeed given matching mock customer data, so no missing contract number prompt.
+    assert result["auth_verified"] is True
+
+
+def test_pure_tariff_query_auto_handled_not_manual():
+    """
+    Simulate the LLM returning no intents for a pure tariff question.
+    Fallback inference should classify it as ProductInfoRequest so it is
+    auto-handled (no manual review, no auth).
+    """
+    extraction = _mock_extraction(
+        intents=[],
+    )
+
+    message = (
+        "Hi! Can you tell me more about your dynamic tariff? "
+        "How does it work and what are the benefits?"
+    )
+
+    result = run_graph(
+        message,
+        mock_extract=extraction,
+        mock_llm_reply="Hello,\n\nHere is information about our dynamic tariff.\n\nKind regards,\nAI Service Assistant",
+    )
+
+    # Product info intent should be inferred.
+    assert Intent.PRODUCT_INFO_REQUEST in result["detected_intents"]
+    # No auth should be required and no manual review triggered.
+    assert result["auth_verified"] is False
+    assert not result.get("requires_manual_review", False)
+    # Final response should contain tariff information (from mocked LLM reply).
+    assert "dynamic tariff" in result["final_response"].lower()
