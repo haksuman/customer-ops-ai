@@ -9,6 +9,8 @@ from app.core.logging import thread_id_ctx
 from app.graph.workflow import build_workflow
 from app.models.schemas import (
     ApprovalListResponse,
+    Customer,
+    CustomerListResponse,
     DashboardResponse,
     DashboardKpis,
     DashboardTimeseriesPoint,
@@ -319,3 +321,10 @@ async def get_thread(thread_id: str) -> ThreadStateResponse:
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
     return ThreadStateResponse(state=thread)
+
+
+@router.get("/customers", response_model=CustomerListResponse)
+async def list_customers() -> CustomerListResponse:
+    repo = MockCustomerRepository()
+    customers = [Customer(**r) for r in repo.list_all()]
+    return CustomerListResponse(customers=customers)

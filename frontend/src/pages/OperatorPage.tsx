@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { PendingApproval } from '../types';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function OperatorPage() {
   const [approvals, setApprovals] = useState<PendingApproval[]>([]);
@@ -10,7 +12,7 @@ export default function OperatorPage() {
 
   const fetchApprovals = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/approvals');
+      const response = await fetch(`${API_BASE}/api/approvals`);
       if (!response.ok) throw new Error('Failed to fetch approvals');
       const data = await response.json();
       setApprovals(data.approvals);
@@ -32,7 +34,7 @@ export default function OperatorPage() {
   const handleAction = async (id: string, action: 'approve' | 'reject') => {
     setProcessingId(id);
     try {
-      const response = await fetch(`http://localhost:8000/api/approvals/${id}/${action}`, {
+      const response = await fetch(`${API_BASE}/api/approvals/${id}/${action}`, {
         method: 'POST',
       });
       if (!response.ok) throw new Error(`Failed to ${action} request`);
@@ -54,6 +56,7 @@ export default function OperatorPage() {
         <Link to="/operator" className="nav-link active">Operator Dashboard</Link>
         <Link to="/not-handled" className="nav-link">Not Handled Emails</Link>
         <Link to="/dashboard" className="nav-link">Manager Dashboard</Link>
+        <Link to="/customers" className="nav-link">Customers</Link>
       </nav>
 
       <main>

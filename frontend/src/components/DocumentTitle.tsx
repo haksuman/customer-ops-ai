@@ -8,6 +8,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/operator': 'Operator Dashboard',
   '/not-handled': 'Not Handled Emails',
   '/dashboard': 'Manager Dashboard',
+  '/customers': 'Customers',
 }
 
 export function DocumentTitle() {

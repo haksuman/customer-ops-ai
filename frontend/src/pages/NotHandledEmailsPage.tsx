@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { NotHandledEmail } from '../types';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function NotHandledEmailsPage() {
   const [emails, setEmails] = useState<NotHandledEmail[]>([]);
@@ -10,7 +12,7 @@ export default function NotHandledEmailsPage() {
 
   const fetchEmails = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/not-handled-emails');
+      const response = await fetch(`${API_BASE}/api/not-handled-emails`);
       if (!response.ok) throw new Error('Failed to fetch not-handled emails');
       const data = await response.json();
       setEmails(data.emails);
@@ -32,7 +34,7 @@ export default function NotHandledEmailsPage() {
   const handleResolve = async (id: string) => {
     setProcessingId(id);
     try {
-      const response = await fetch(`http://localhost:8000/api/not-handled-emails/${id}/resolve`, {
+      const response = await fetch(`${API_BASE}/api/not-handled-emails/${id}/resolve`, {
         method: 'POST',
       });
       if (!response.ok) throw new Error(`Failed to resolve request`);
@@ -54,6 +56,7 @@ export default function NotHandledEmailsPage() {
         <Link to="/operator" className="nav-link">Operator Dashboard</Link>
         <Link to="/not-handled" className="nav-link active">Not Handled Emails</Link>
         <Link to="/dashboard" className="nav-link">Manager Dashboard</Link>
+        <Link to="/customers" className="nav-link">Customers</Link>
       </nav>
 
       <main>

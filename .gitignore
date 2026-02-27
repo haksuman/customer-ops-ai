@@ -46,3 +46,5 @@ docker-compose.override.yml
 Thumbs.db
 desktop.ini
 
+gcp-key.json
+gcp.config.ps1

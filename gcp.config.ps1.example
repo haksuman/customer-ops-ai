@@ -1,0 +1,53 @@
+# =============================================================================
+# gcp.config.ps1.example -- GCP deployment configuration template
+#
+# HOW TO USE:
+#   1. Copy this file:  cp gcp.config.ps1.example gcp.config.ps1
+#   2. Fill in your values in gcp.config.ps1
+#   3. gcp.config.ps1 is gitignored -- never commit it
+#
+# WORKFLOW (first time):
+#   a. Fill PROJECT_ID, REGION, AR_REPOSITORY, BILLING_ACCOUNT_ID,
+#      DEPLOYER_EMAIL, SERVICE_ACCOUNT_KEY_FILE
+#   b. Run setup-gcp.ps1 once
+#   c. Run deploy-backend.ps1 -- copy the printed Backend URL into BACKEND_URL
+#   d. Run deploy-frontend.ps1 -- copy the printed Frontend URL into CORS_ALLOW_ORIGINS
+#   e. Run deploy-backend.ps1 again to apply the CORS restriction
+# =============================================================================
+
+# --- GCP project ---
+
+# Your GCP project ID (visible in GCP Console top bar)
+$PROJECT_ID = "your-gcp-project-id"
+
+# Region for Cloud Run and Artifact Registry
+$REGION = "europe-west4"
+
+# Artifact Registry Docker repository name (created by setup-gcp.ps1)
+$AR_REPOSITORY = "customer-ops"
+
+# --- Authentication ---
+
+# Billing account ID -- run: gcloud billing accounts list
+# Only needed by setup-gcp.ps1 for new projects.
+$BILLING_ACCOUNT_ID = "XXXXXX-XXXXXX-XXXXXX"
+
+# Google account used when SERVICE_ACCOUNT_KEY_FILE is empty.
+$DEPLOYER_EMAIL = "you@example.com"
+
+# Absolute path to a GCP service account JSON key file.
+# Get it from: GCP Console -> IAM & Admin -> Service Accounts
+#   -> your SA -> Keys tab -> Add Key -> Create new key -> JSON
+# Leave empty to use gcloud's currently active personal account.
+$SERVICE_ACCOUNT_KEY_FILE = ""
+
+# --- Service URLs (fill after first deploy) ---
+
+# Backend Cloud Run URL printed by deploy-backend.ps1.
+# Baked into the JS bundle at frontend build time -- rebuild if it changes.
+$BACKEND_URL = "https://your-backend-url.a.run.app"
+
+# Frontend Cloud Run URL printed by deploy-frontend.ps1.
+# Applied as CORS_ALLOW_ORIGINS on every backend redeploy.
+# Use "*" during initial setup; restrict to the real URL afterwards.
+$CORS_ALLOW_ORIGINS = "*"

@@ -103,6 +103,7 @@ function App() {
         <Link to="/operator" className="nav-link">Operator Dashboard</Link>
         <Link to="/not-handled" className="nav-link">Not Handled Emails</Link>
         <Link to="/dashboard" className="nav-link">Manager Dashboard</Link>
+        <Link to="/customers" className="nav-link">Customers</Link>
       </nav>
       <header>
         <h1>Agentic Customer Copilot</h1>

@@ -19,6 +19,8 @@ import type { DashboardResponse } from '../types';
 
 // const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 export default function ManagerDashboardPage() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [window, setWindow] = useState('7d');
@@ -28,7 +30,7 @@ export default function ManagerDashboardPage() {
   const fetchDashboard = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/dashboard?window=${window}`);
+      const response = await fetch(`${API_BASE}/api/dashboard?window=${window}`);
       if (!response.ok) throw new Error('Failed to fetch dashboard data');
       const result = await response.json();
       setData(result);
@@ -54,6 +56,7 @@ export default function ManagerDashboardPage() {
         <Link to="/operator" className="nav-link">Operator Dashboard</Link>
         <Link to="/not-handled" className="nav-link">Not Handled Emails</Link>
         <Link to="/dashboard" className="nav-link active">Manager Dashboard</Link>
+        <Link to="/customers" className="nav-link">Customers</Link>
       </nav>
 
       <main>

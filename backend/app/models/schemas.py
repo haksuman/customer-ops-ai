@@ -138,3 +138,15 @@ class DashboardResponse(BaseModel):
     timeseries: list[DashboardTimeseriesPoint]
     intents: list[DashboardIntentBreakdown]
     reasons: list[DashboardReasonBreakdown]
+
+
+class Customer(BaseModel):
+    id: str
+    contract_number: str
+    full_name: str
+    postal_code: str
+    last_meter_reading_kwh: int
+
+
+class CustomerListResponse(BaseModel):
+    customers: list[Customer]

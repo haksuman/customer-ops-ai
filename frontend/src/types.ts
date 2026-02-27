@@ -89,3 +89,11 @@ export type DashboardResponse = {
   intents: DashboardIntentBreakdown[]
   reasons: DashboardReasonBreakdown[]
 }
+
+export type Customer = {
+  id: string
+  contract_number: string
+  full_name: string
+  postal_code: string
+  last_meter_reading_kwh: number
+}

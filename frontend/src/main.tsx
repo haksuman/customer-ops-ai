@@ -7,6 +7,7 @@ import { DocumentTitle } from './components/DocumentTitle.tsx'
 import OperatorPage from './pages/OperatorPage.tsx'
 import NotHandledEmailsPage from './pages/NotHandledEmailsPage.tsx'
 import ManagerDashboardPage from './pages/ManagerDashboardPage.tsx'
+import CustomersPage from './pages/CustomersPage.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -17,6 +18,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/operator" element={<OperatorPage />} />
         <Route path="/not-handled" element={<NotHandledEmailsPage />} />
         <Route path="/dashboard" element={<ManagerDashboardPage />} />
+        <Route path="/customers" element={<CustomersPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

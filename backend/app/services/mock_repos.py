@@ -101,6 +101,19 @@ class MockCustomerRepository:
         _save(self._filename, list(self._customers.values()))
         return True
 
+    def list_all(self) -> list[dict]:
+        """Return all customer records with '_id' renamed to 'id'."""
+        return [
+            {
+                "id": r["_id"],
+                "contract_number": r["contract_number"],
+                "full_name": r["full_name"],
+                "postal_code": r["postal_code"],
+                "last_meter_reading_kwh": r["last_meter_reading_kwh"],
+            }
+            for r in self._customers.values()
+        ]
+
     def update_meter_reading(self, contract_number: str, reading_kwh: int) -> bool:
         from app.services.extractor import normalize_contract_number
         c_norm = normalize_contract_number(contract_number)
