@@ -1,8 +1,8 @@
-# LichtBlick AI Engineer Coding Challenge
+# AI Engineer Coding Challenge
 
 ## "Agentic Customer Contact Copilot"
 
-At LichtBlick, we receive a lot of email requests from our customers. These emails frequently include similar intents like personal/payment information changes, meter readings, contract issues or product questions. For these repetitive processes we want to introduce a (semi-)automated solution that helps us to reduce **Average Handle Time (AHT)** and increase **First-Contact Resolution (FCR)** without compromising quality, compliance or customer trust.
+We receive a lot of email requests from our customers. These emails frequently include similar intents like personal/payment information changes, meter readings, contract issues or product questions. For these repetitive processes we want to introduce a (semi-)automated solution that helps us to reduce **Average Handle Time (AHT)** and increase **First-Contact Resolution (FCR)** without compromising quality, compliance or customer trust.
 
 ---
 
@@ -49,9 +49,9 @@ Authentication can be done with **three personal data points** extracted from th
 
 ### 3. Example Email Exchange
 
-**CUSTOMER → LICHTBLICK**
+**CUSTOMER → Platform**
 
-> Hello LichtBlick Team,
+> Hello,
 >
 > I'd like to submit my latest electricity meter reading and ask about your dynamic tariff. My meter number is LB-9876543. The reading yesterday (25.09.2025) was 2438 kWh.
 >
@@ -63,7 +63,7 @@ Authentication can be done with **three personal data points** extracted from th
 
 ---
 
-**LICHTBLICK → CUSTOMER**
+**Platform → CUSTOMER**
 
 > Hello Ms. Meyer,
 >
@@ -85,7 +85,7 @@ Authentication can be done with **three personal data points** extracted from th
 
 ---
 
-**CUSTOMER → LICHTBLICK**
+**CUSTOMER → Platform**
 
 > Hello,
 >
@@ -95,7 +95,7 @@ Authentication can be done with **three personal data points** extracted from th
 
 ---
 
-**LICHTBLICK → CUSTOMER**
+**Platform → CUSTOMER**
 
 > Dear Ms. Meyer,
 >
@@ -112,7 +112,7 @@ Authentication can be done with **three personal data points** extracted from th
 
 ---
 
-**CUSTOMER → LICHTBLICK**
+**CUSTOMER → Platform**
 
 > Sorry, I mistyped the consumption. The correct value is 1438 kWh.
 >
@@ -120,7 +120,7 @@ Authentication can be done with **three personal data points** extracted from th
 
 ---
 
-**LICHTBLICK → CUSTOMER**
+**Platform → CUSTOMER**
 
 > Dear Ms. Meyer,
 >

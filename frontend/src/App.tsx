@@ -10,7 +10,7 @@ const SCENARIOS: Scenario[] = [
     id: 'full-success',
     label: 'Prompt 1',
     description: 'Full Success: Complete auth + Meter reading + Tariff question.',
-    text: "Hello LichtBlick Team,\n\nI'd like to submit my latest electricity meter reading and ask about your dynamic tariff. My contract number is LB-9876543 and the reading is 1438 kWh.\n\nMy postal code is 20097.\n\nBest regards,\nJulia Meyer",
+    text: "Hello, \n\nI'd like to submit my latest electricity meter reading and ask about your dynamic tariff. My contract number is LB-9876543 and the reading is 1438 kWh.\n\nMy postal code is 20097.\n\nBest regards,\nJulia Meyer",
   },
   {
     id: 'missing-data',
@@ -34,13 +34,13 @@ const SCENARIOS: Scenario[] = [
     id: 'data-change',
     label: 'Prompt 5',
     description: 'Data Change: Requesting a name change (Requires authentication).',
-    text: "Hello LichtBlick,\n\nI'm Thomas Wagner (Contract LB-9900112, PLZ 60313). I've recently got married and would like to change my name on the contract to Thomas Müller.\n\nRegards,\nThomas Wagner",
+    text: "Hello,\n\nI'm Thomas Wagner (Contract LB-9900112, PLZ 60313). I've recently got married and would like to change my name on the contract to Thomas Müller.\n\nRegards,\nThomas Wagner",
   },
   {
     id: 'out-of-scope',
     label: 'Prompt 6',
     description: 'Out of Scope: Asking for tax advice (Should be forwarded).',
-    text: "Dear LichtBlick,\n\nI'm happy with my electricity contract, but I have a question about my income tax declaration. Do I need to report the solar feed-in tariff as income? If so, which form do I use?\n\nBest regards,\nMax Mustermann",
+    text: "Dear,\n\nI'm happy with my electricity contract, but I have a question about my income tax declaration. Do I need to report the solar feed-in tariff as income? If so, which form do I use?\n\nBest regards,\nMax Mustermann",
   },
   {
     id: 'complex-request',
